@@ -2,144 +2,104 @@ package com.labs.rpc;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.*;
-import org.json.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.JSONTokener;
 
+/**
+ * Base for all transport packets
+ * @author ben
+ */
 public class DataPacket {
 
-	private static final String NULL = "null";						// Null value
-	private static final String SEP = "::";							// Separator
-	private static final int HEADER_SIZE = 20;						// Size of the header
+	protected static final String NULL = "null";					// Null value
+	protected static final int HEADER_SIZE = 21;					// Size of the header
 	
-	private static final byte FORMAT_NULL = 0x40;					// Null
-	private static final byte FORMAT_BOOL = 0x41;					// Boolean
-	private static final byte FORMAT_BYTE = 0x42;					// Byte (0-255)
-	private static final byte FORMAT_CHAR = 0x43;					// Character
-	private static final byte FORMAT_SHORT = 0x44;					// Short integer
-	private static final byte FORMAT_INT = 0x45;					// Integer
-	private static final byte FORMAT_FLOAT = 0x46;					// Float
-	private static final byte FORMAT_DOUBLE = 0x47;					// Double
-	private static final byte FORMAT_LONG = 0x48;					// Long
-	private static final byte FORMAT_STRING = 0x49;					// String
-	private static final byte FORMAT_ARRAY = 0x50;					// Array of objects
-	private static final byte FORMAT_LIST = 0x51;					// List of objects
-	private static final byte FORMAT_JSON = 0x52;					// JSON object
-	private static final byte FORMAT_JSON_ARRAY = 0x53;				// JSON array
-	private static final byte FORMAT_EXCEPTION = 0x54;				// Exception
-	private static final byte FORMAT_OTHER = 0x55;					// Unknown type
+	protected static final byte FORMAT_NULL = 0x40;					// Null
+	protected static final byte FORMAT_BOOL = 0x41;					// Boolean
+	protected static final byte FORMAT_BYTE = 0x42;					// Byte (0-255)
+	protected static final byte FORMAT_CHAR = 0x43;					// Character
+	protected static final byte FORMAT_SHORT = 0x44;				// Short integer
+	protected static final byte FORMAT_INT = 0x45;					// Integer
+	protected static final byte FORMAT_FLOAT = 0x46;				// Float
+	protected static final byte FORMAT_DOUBLE = 0x47;				// Double
+	protected static final byte FORMAT_LONG = 0x48;					// Long
+	protected static final byte FORMAT_STRING = 0x49;				// String
+	protected static final byte FORMAT_ARRAY = 0x50;				// Array of objects
+	protected static final byte FORMAT_LIST = 0x51;					// List of objects
+	protected static final byte FORMAT_JSON = 0x52;					// JSON object
+	protected static final byte FORMAT_JSON_ARRAY = 0x53;			// JSON array
+	protected static final byte FORMAT_EXCEPTION = 0x54;			// Exception
+	protected static final byte FORMAT_OTHER = 0x55;				// Unknown type
 	
 	private static Long seqCounter = 0L;							// Sequence counter
-	
+	protected byte type;											// Packet type
 	protected long seq;												// Sequence number
-	private long time;												// Creation timestamp
-	private String meth;											// Method being called
-	private Object[] args;											// Method argument
+	protected long time;											// Creation timestamp
+	protected byte[] payload;										// Encapsulated data
 	
 	/**
 	 * Create a new data packet
+	 * @param t byte - Packet type
+	 */
+	public DataPacket(byte t) {
+		this(t, getNextSeq());
+	}
+	
+	/**
+	 * Create an empty data packet
 	 */
 	private DataPacket() {
-		seq = 0;
-		time = 0;
-		meth = null;
-		args = null;
+		this((byte)0,0);
 	}
 	
 	/**
 	 * Create a new data packet
-	 * @param method {@link String} - Method to call
-	 * @param params {@link Object}... - Call parameters
+	 * @param seqNum long - Sequence number
+	 * @param t byte - Packet type
 	 */
-	public DataPacket(String method, Object... params) {
-		seq = getSeqNumber();
+	protected DataPacket(byte t, long seqNum) {
+		type = t;
+		seq = seqNum;
 		time = System.currentTimeMillis();
-		meth = method;
-		args = params;
 	}
 	
-	private static final long getSeqNumber() {
+	/**
+	 * Get the next sequence number
+	 * @return long
+	 */
+	private static final long getNextSeq() {
 		synchronized(seqCounter) {
 			return ++seqCounter;
 		}
 	}
 	
+	/**
+	 * Get the associated sequence number
+	 * @return long
+	 */
 	public long getSeq() {
 		return seq;
 	}
 	
+	/**
+	 * Get the associated timestamp
+	 * @return long
+	 */
 	public long getTime() {
 		return time;
 	}
 	
-	public String getMethod() {
-		return meth;
-	}
-	
-	public Object[] getArguments() {
-		return args;
-	}
-	
-	public byte[] getBytes() {
-		StringBuffer buf = new StringBuffer();
-		buf.append(meth);
-		for (Object arg:args) {
-			buf.append(SEP);
-			buf.append(new String(packObject(arg)));
-		}
-		ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
-		header.putInt(buf.length());
-		header.putLong(seq);
-		header.putLong(time);
-		buf.insert(0, new String(header.array()));
-		return buf.toString().getBytes();
-	}
-	
-	public DataPacket fromBytes(byte[] bytes) throws Exception {
-		ByteBuffer buf = ByteBuffer.wrap(bytes);
-		DataPacket dp = new DataPacket();
-		int l = buf.getInt(0);
-		dp.time = buf.getLong(4);
-		dp.seq = buf.getLong(12);
-		String[] parts = new String(Arrays.copyOfRange(bytes, HEADER_SIZE, HEADER_SIZE + l)).split(SEP);
-		if (parts.length == 0) {
-			throw new IllegalArgumentException("Invalid packet: no call data");
-		}
-		dp.meth = parts[0];
-		Object[] params = new Object[parts.length - 1];
-		for (int i=1;i<parts.length;i++) {
-			params[i-1] = unpackObject(parts[i]);
-		}
-		dp.args = params;
-		return dp;
-	}
-	
-	public DataPacket fromStream(InputStream in) throws Exception {
-		byte[] headerBytes = new byte[HEADER_SIZE];
-		int n = 0;
-		while (n < HEADER_SIZE) {
-			in.read(headerBytes, n, HEADER_SIZE - n);
-		}
-		DataPacket dp = new DataPacket();
-		ByteBuffer header = ByteBuffer.wrap(headerBytes);
-		int l = header.getInt(0);
-		dp.time = header.getLong(4);
-		dp.seq = header.getLong(12);
-		byte[] payloadBytes = new byte[l];
-		n = 0;
-		while (n < l) {
-			in.read(payloadBytes, n, l - n);
-		}
-		String[] parts = new String(payloadBytes).split(SEP);
-		if (parts.length == 0) {
-			throw new IllegalArgumentException("Invalid packet: no call data");
-		}
-		dp.meth = parts[0];
-		Object[] params = new Object[parts.length - 1];
-		for (int i=1;i<parts.length;i++) {
-			params[i-1] = unpackObject(parts[i]);
-		}
-		dp.args = params;
-		return dp;
+	/**
+	 * Get the packet type
+	 * @return byte
+	 */
+	public byte getType() {
+		return type;
 	}
 	
 	/**
@@ -223,7 +183,7 @@ public class DataPacket {
 		buf.put(bytes);
 		return buf.array();
 	}
-	
+
 	/**
 	 * Unpack an object
 	 * @param argData {@link String} - Data
@@ -279,6 +239,76 @@ public class DataPacket {
 		} else {
 			throw new IllegalArgumentException("Invalid arg type: " + type);
 		}
+	}
+
+	/**
+	 * Make the header bytes
+	 * @param pl int - Payload size 
+	 * @return byte[]
+	 */
+	protected byte[] makeHeaderBytes(int pl) {
+		ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
+		header.put(type);
+		header.putInt(pl);
+		header.putLong(seq);
+		header.putLong(time);
+		return header.array();
+	}
+	
+	/**
+	 * Make the packet bytes
+	 * @param header byte[] - Header bytes
+	 * @param payload byte[] - Payload bytes
+	 * @return byte[]
+	 */
+	protected byte[] makePacketBytes(byte[] header, byte[] payload) {
+		ByteBuffer data = ByteBuffer.allocate(HEADER_SIZE + payload.length);
+		data.put(header);
+		data.put(payload);
+		return data.array();
+	}
+		
+	/**
+	 * Build a new packet object from raw data
+	 * @param bytes byte[] - Bytes
+	 * @return {@link DataPacket}
+	 * @throws Exception
+	 */
+	public static DataPacket fromBytes(byte[] bytes) throws Exception {
+		ByteBuffer buf = ByteBuffer.wrap(bytes);
+		DataPacket dp = new DataPacket();
+		dp.type = buf.get(0);
+		dp.time = buf.getLong(5);
+		dp.seq = buf.getLong(13);
+		int l = buf.getInt(1);
+		dp.payload = Arrays.copyOfRange(bytes, HEADER_SIZE, HEADER_SIZE + l);
+		return dp;
+	}
+	
+	/**
+	 * Read a new packet object from a byte stream
+	 * @param in {@link InputStream} - Input stream
+	 * @return {@link DataPacket}
+	 * @throws Exception
+	 */
+	public DataPacket fromStream(InputStream in) throws Exception {
+		byte[] headerBytes = new byte[HEADER_SIZE];
+		int n = 0;
+		while (n < HEADER_SIZE) {
+			in.read(headerBytes, n, HEADER_SIZE - n);
+		}
+		DataPacket dp = new DataPacket();
+		ByteBuffer header = ByteBuffer.wrap(headerBytes);
+		dp.type = header.get(0);
+		dp.time = header.getLong(5);
+		dp.seq = header.getLong(13);
+		int l = header.getInt(1);
+		dp.payload = new byte[l];
+		n = 0;
+		while (n < l) {
+			in.read(dp.payload, n, l - n);
+		}
+		return dp;
 	}
 	
 }
