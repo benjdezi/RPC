@@ -1,4 +1,6 @@
-package com.labs.rpc;
+package com.labs.rpc.util;
+
+import com.labs.rpc.RemoteCall;
 
 public class Call {
 	

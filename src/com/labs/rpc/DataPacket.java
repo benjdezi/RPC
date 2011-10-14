@@ -9,6 +9,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
+import com.labs.rpc.util.RemoteException;
+
 /**
  * Base for all transport packets
  * @author ben

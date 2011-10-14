@@ -1,4 +1,4 @@
-package com.labs.rpc;
+package com.labs.rpc.util;
 
 /**
  * Notify that a method is part of the 

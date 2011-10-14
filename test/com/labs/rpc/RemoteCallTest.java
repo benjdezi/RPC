@@ -5,6 +5,8 @@ import java.util.*;
 import junit.framework.*;
 import org.junit.Test;
 
+import com.labs.rpc.util.RemoteException;
+
 /**
  * Test that a remote call can be transmitted as bytes
  * and rebuilt identically on the other side

@@ -1,4 +1,4 @@
-package com.labs.rpc;
+package com.labs.rpc.util;
 
 public abstract class RPCObject {
 

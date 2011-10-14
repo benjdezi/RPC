@@ -1,4 +1,4 @@
-package com.labs.rpc;
+package com.labs.rpc.util;
 
 /**
  * When a remote call throws an exception on the remote side
