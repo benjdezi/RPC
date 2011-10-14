@@ -9,7 +9,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import com.labs.rpc.util.Call;
 import com.labs.rpc.util.Queue;
 import com.labs.rpc.util.RPCMethod;
+import com.labs.rpc.util.RPCObject;
 import com.labs.rpc.util.RemoteException;
+
+// TODO: Implement timeout
 
 /**
  * Handle incoming and outgoing calls
@@ -20,6 +23,7 @@ public class RPCRouter {
 	private AtomicBoolean killed;		// Whether this router is dead
 	
 	private Transport transp;			// Object transport
+	private RPCObject rpcObj;			// RPC object to apply incoming call onto
 	private Queue<Call> outCalls;		// Outgoing calls waiting to be sent
 	private Map<Long,Call> outWait;		// Outgoing calls waiting for returns
 	private Queue<Call> inCalls;		// Incoming calls waiting for processing
@@ -30,14 +34,16 @@ public class RPCRouter {
 		
 	/**
 	 * Create a new router
+	 * @param obj {@link RPCObject} - Object this router will locally call onto
 	 * @param transport {@link Transport} - Transport to be used
 	 */
-	public RPCRouter(Transport transport) {
-		killed = new AtomicBoolean(false);
+	public RPCRouter(RPCObject obj, Transport transport) {
+		killed = new AtomicBoolean(true);
 		recvLoop = new RecvThread(this);
 		sendLoop = new XmitThread(this);
 		callProc = new CallProcessor(this);
 		transp = transport;
+		rpcObj = obj;
 	}
 	
 	/**
@@ -90,6 +96,14 @@ public class RPCRouter {
 	}
 	
 	/**
+	 * Return whether this router is still running
+	 * @return boolean
+	 */
+	public boolean isAlive() {
+		return !killed.get();
+	}
+	
+	/**
 	 * Push a remote call out
 	 * @param rc {@link RemoteCall} - Call to send
 	 */
@@ -97,6 +111,76 @@ public class RPCRouter {
 		outCalls.put(new Call(rc));
 	}
 	
+	/**
+	 * Get a call return value if available
+	 * @param rc {@link RemoteCall} - Call to get return for
+	 * @return {@link Object}
+	 * @throws IllegalStateException If not available yet
+	 * @throws IllegalArgumentException If not found
+	 * @throws RemoteException When something went wrong on the remote side
+	 */
+	public Object getReturn(RemoteCall rc) throws IllegalArgumentException, IllegalStateException, RemoteException {
+		return getReturn(rc.getSeq());
+	}
+	
+	/**
+	 * Get a call return value if available
+	 * @param seq long - Call sequence number
+	 * @return {@link Object}
+	 * @throws IllegalStateException If not available yet
+	 * @throws IllegalArgumentException If not found
+	 * @throws RemoteException When something went wrong on the remote side
+	 */
+	public Object getReturn(long seq) throws IllegalArgumentException, IllegalStateException, RemoteException {
+		Call call = outWait.get(seq);
+		if (call == null) {
+			throw new IllegalArgumentException("No such call: " + seq);
+		}
+		if (call.isReturned()) {
+			Object ret = call.getReturnValue();
+			if (ret instanceof RemoteException) {
+				throw (RemoteException)ret;
+			}
+			return ret;
+		}
+		throw new IllegalStateException("Not returned yet");
+	}
+
+	/**
+	 * Wait until the given call returns
+	 * @param rc {@link RemoteCall} - Initial call
+	 * @return {@link Object} Returned value
+	 * @throws RemoteException When something went wrong on the remote side
+	 */
+	public Object getReturnBlocking(RemoteCall rc) throws RemoteException {
+		return getReturnBlocking(rc.getSeq());
+	}
+	
+	/**
+	 * Wait until the given call returns
+	 * @param seq long - Call sequence number
+	 * @return {@link Object} Returned value
+	 * @throws IllegalArgumentException If not found
+	 * @throws RemoteException When something went wrong on the remote side
+	 */
+	public Object getReturnBlocking(long seq) throws IllegalArgumentException, RemoteException {
+		try {
+			while (true) {
+				try {
+					return getReturn(seq);
+				} catch (IllegalStateException e) {
+					/* Not here yet */
+					Thread.sleep(25);
+					continue;
+				} catch (IllegalArgumentException e) {
+					/* Call not found */
+					throw e;
+				}
+			}
+		} catch (InterruptedException e) {
+			return null;
+		}
+	}
 	
 	/**
 	 * Receiving thread
@@ -109,6 +193,7 @@ public class RPCRouter {
 		
 		public RecvThread(RPCRouter r) {
 			super("RPC receiving thread");
+			setDaemon(false);
 			on = true;
 			router = r;
 		}
@@ -152,7 +237,7 @@ public class RPCRouter {
 		}
 		
 	}
-
+	
 	
 	/**
 	 * Sending thread
@@ -165,6 +250,7 @@ public class RPCRouter {
 		
 		public XmitThread(RPCRouter r) {
 			super("RPC sending thread");
+			setDaemon(false);
 			on = true;
 			router = r;
 		}
@@ -212,6 +298,7 @@ public class RPCRouter {
 		
 		public CallProcessor(RPCRouter r) {
 			super("RPC call processor");
+			setDaemon(false);
 			on = true;
 			router = r;
 		}
@@ -251,31 +338,21 @@ public class RPCRouter {
 		}
 		
 		private Object makeCall(RemoteCall rc) throws Exception {
-			int p = rc.getMethod().lastIndexOf(".");
-			if (p > 0) {
-				Method method = null;
-				String methodName = rc.getMethod().substring(p);
-				Class<?> clazz = Class.forName(rc.getMethod().substring(0,p));
-				Method instGetter = clazz.getMethod("getInstance");
-				if (instGetter == null) {
-					throw new Exception("Invalid call (" + clazz.getSimpleName() + " is not a RPC object)");
+			Method method = null;
+			Class<?> clazz = router.rpcObj.getClass();
+			for (Method meth:clazz.getMethods()) {
+				if (rc.getMethod().equals(meth.getName())) {
+					method = meth;
+					break;
 				}
-				for (Method meth:clazz.getMethods()) {
-					if (methodName.equals(meth.getName())) {
-						method = meth;
-						break;
-					}
-				}
-				if (method != null) {
-					if (isRPCMethod(method)) {
-						Object inst = instGetter.invoke(null);
-						callMethod(inst, method, rc.getArguments());
-					}
-					throw new Exception("Not a RPC method");
-				}
-				throw new Exception("Method not found");
 			}
-			throw new Exception("Invalid call (no class specified)");
+			if (method != null) {
+				if (isRPCMethod(method)) {
+					return callMethod(router.rpcObj, method, rc.getArguments());
+				}
+				throw new Exception("Not a RPC method");
+			}
+			throw new Exception("Method not found");
 		}
 		
 		/**

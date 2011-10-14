@@ -120,9 +120,9 @@ public class RemoteCall extends DataPacket {
 					return false;
 				}
 			} else if (arg1 instanceof JSONObject && arg2 instanceof JSONObject) {
-				// TODO
+				// TODO: JSON equals
 			} else if (arg1 instanceof JSONArray && arg2 instanceof JSONArray) {
-				// TODO
+				// TODO: JSONArray equals
 			} else if (!arg1.equals(arg2)) {
 				return false;
 			}
