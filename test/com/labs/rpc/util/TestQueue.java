@@ -1,8 +1,7 @@
-package com.labs.rpc;
+package com.labs.rpc.util;
 
 import junit.framework.*;
 import org.junit.Test;
-
 import com.labs.rpc.util.Queue;
 
 public class TestQueue extends TestCase {

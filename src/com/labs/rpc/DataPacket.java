@@ -258,6 +258,15 @@ public class DataPacket {
 	}
 		
 	/**
+	 * Get the packet bytes to send over
+	 * @return byte[]
+	 */
+	public byte[] getBytes() {
+		byte[] header = makeHeaderBytes(payload.length);
+		return makePacketBytes(header, payload);
+	}
+	
+	/**
 	 * Build a new packet object from raw data
 	 * @param bytes byte[] - Bytes
 	 * @return {@link DataPacket}

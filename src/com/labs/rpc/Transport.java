@@ -22,4 +22,9 @@ public interface Transport {
 	 */
 	public DataPacket recv() throws IOException;
 	
+	/**
+	 * Terminate all transport activities and release internal data
+	 */
+	public void shutdown();
+	
 }

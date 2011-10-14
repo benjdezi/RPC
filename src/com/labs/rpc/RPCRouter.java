@@ -5,7 +5,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
-
+import java.util.concurrent.atomic.AtomicBoolean;
 import com.labs.rpc.util.Call;
 import com.labs.rpc.util.Queue;
 import com.labs.rpc.util.RPCMethod;
@@ -17,7 +17,7 @@ import com.labs.rpc.util.RemoteException;
  */
 public class RPCRouter {
 
-	private Boolean killed;				// Whether this router is dead
+	private AtomicBoolean killed;		// Whether this router is dead
 	
 	private Transport transp;			// Object transport
 	private Queue<Call> outCalls;		// Outgoing calls waiting to be sent
@@ -33,6 +33,7 @@ public class RPCRouter {
 	 * @param transport {@link Transport} - Transport to be used
 	 */
 	public RPCRouter(Transport transport) {
+		killed = new AtomicBoolean(false);
 		recvLoop = new RecvThread(this);
 		sendLoop = new XmitThread(this);
 		callProc = new CallProcessor(this);
@@ -43,6 +44,7 @@ public class RPCRouter {
 	 * Start the processing loops and initialize internal states
 	 */
 	public void start() {
+		killed.set(false);
 		outCalls = new Queue<Call>();
 		outWait = new HashMap<Long,Call>(0);
 		inCalls = new Queue<Call>();
@@ -57,13 +59,17 @@ public class RPCRouter {
 	 */
 	public void stop() {
 		kill();
-		try {
+		if (outCalls != null) {
 			outCalls.clear();
+		}
+		if (outWait != null) {
 			outWait.clear();
+		}
+		if (inCalls != null) {
 			inCalls.clear();
+		}
+		if (inWait != null) {
 			inWait.clear();
-		} catch (Exception e) {
-			e.printStackTrace();
 		}
 	}
 	
@@ -72,19 +78,15 @@ public class RPCRouter {
 	 */
 	private void kill() {
 		synchronized(killed) {
-			if (killed) {
+			if (killed.get()) {
 				return;
 			}
-			killed = true;
+			killed.set(true);
 		}
-		try {
-			callProc.interrupt();
-			recvLoop.interrupt();
-			sendLoop.interrupt();	
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		
+		callProc.interrupt();
+		recvLoop.interrupt();
+		sendLoop.interrupt();
+		transp.shutdown();		
 	}
 	
 	/**
