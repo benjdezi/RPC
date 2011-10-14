@@ -293,20 +293,20 @@ public class RPCRouter {
 		 * @param obj {@link Object} - Object to call onto
 		 * @param meth {@link Method} - Method to call
 		 * @param args {@link Object}[] - Call arguments
-		 * @return {@link Object} Return value upon success, an exception otherwise
+		 * @return {@link Object} Return value upon success, a remote exception otherwise
 		 */
 		public static Object callMethod(Object obj, Method meth, Object[] args) {
 			Object ret = null;
 			try {
 				ret = meth.invoke(obj,args);
 			} catch (IllegalArgumentException e) {
-				ret = e;
+				ret = new RemoteException(e);
 				e.printStackTrace();
 			} catch (IllegalAccessException e) {
-				ret = e;
+				ret = new RemoteException(e);
 				e.printStackTrace();
 			} catch (InvocationTargetException e) {
-				ret = new Exception(e.getTargetException());
+				ret = new RemoteException(e.getTargetException());
 				e.getTargetException().printStackTrace();
 			}
 			return ret;

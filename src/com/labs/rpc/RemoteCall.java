@@ -1,5 +1,8 @@
 package com.labs.rpc;
 
+import java.util.*;
+import org.json.*;
+
 /**
  * Remote call packet
  * @author ben
@@ -85,6 +88,71 @@ public class RemoteCall extends DataPacket {
 			rc.args[i-1] = unpackObject(parts[i]);
 		}
 		return rc;
+	}
+	
+	/**
+	 * Assert if this object is the same as the given one
+	 * @return boolean
+	 */
+	public boolean equals(Object o) {
+		if (!super.equals(o)) {
+			return false;
+		}
+		RemoteCall rc = (RemoteCall)o;
+		if ((meth != null && rc.meth == null) || (meth == null && rc.meth != null) || (!meth.equals(rc.meth))) {
+			return false;
+		}
+		if ((args == null && rc.args != null) || (args != null && rc.args == null) || (args.length != rc.args.length)) {
+			return false;
+		}
+		Object arg1, arg2;
+		for (int i=0;i<args.length;i++) {
+			arg1 = args[i];
+			arg2 = rc.args[i];
+			if (arg1 == arg2) {
+				continue;
+			}
+			if ((arg1 == null && arg2 != null) || (arg1 != null && arg2 == null)) {
+				return false;
+			}
+			if (arg1.getClass().isArray() && arg2.getClass().isArray()) {
+				if (!Arrays.equals((Object[])arg1, (Object[])arg2)) {
+					return false;
+				}
+			} else if (arg1 instanceof JSONObject && arg2 instanceof JSONObject) {
+				// TODO
+			} else if (arg1 instanceof JSONArray && arg2 instanceof JSONArray) {
+				// TODO
+			} else if (!arg1.equals(arg2)) {
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	/**
+	 * Return a string representation of this object
+	 * @return {@link String}
+	 */
+	public String toString() {
+		StringBuffer buf = new StringBuffer();
+		buf.append("RemoteCall #");
+		buf.append(seq);
+		buf.append(": ");
+		buf.append(meth);
+		buf.append("(");
+		for (Object arg:args) {
+			if (arg instanceof String) {
+				buf.append("'");
+				buf.append(arg);
+				buf.append("'");
+			} else {
+				buf.append(arg);
+			}
+			buf.append(",");
+		}
+		buf.append(")");
+		return buf.toString();
 	}
 	
 }

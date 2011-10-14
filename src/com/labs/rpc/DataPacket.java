@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
@@ -33,15 +32,14 @@ public class DataPacket {
 	protected static final byte FORMAT_LIST = 0x51;					// List of objects
 	protected static final byte FORMAT_JSON = 0x52;					// JSON object
 	protected static final byte FORMAT_JSON_ARRAY = 0x53;			// JSON array
-	protected static final byte FORMAT_EXCEPTION = 0x54;			// Exception
-	protected static final byte FORMAT_OTHER = 0x55;				// Unknown type
+	protected static final byte FORMAT_REMOTE_EX = 0x54;			// Remote exception
 	
 	private static Long seqCounter = 0L;							// Sequence counter
 	protected byte type;											// Packet type
 	protected long seq;												// Sequence number
 	protected long time;											// Creation timestamp
 	protected byte[] payload;										// Encapsulated data
-	
+		
 	/**
 	 * Create a new data packet
 	 * @param t byte - Packet type
@@ -163,19 +161,11 @@ public class DataPacket {
 			type = FORMAT_JSON_ARRAY;
 			data = arg.toString();
 		} else if (arg instanceof Exception) {
-			type = FORMAT_EXCEPTION;
-			Exception e = (Exception)arg; 
-			JSONObject json = new JSONObject();
-			try {
-				json.put("class", e.getClass().getSimpleName());
-				json.put("message", e.getMessage());
-			} catch (JSONException ex) {
-				e.printStackTrace();
-			}
-			data = json.toString();
+			type = FORMAT_REMOTE_EX;
+			RemoteException re = (RemoteException)arg; 
+			data = re.getMessage();
 		} else {
-			type = FORMAT_OTHER;
-			data = arg.toString();
+			throw new IllegalArgumentException("Unsupported data type for " + arg);
 		}
 		byte[] bytes = data.getBytes();
 		buf = ByteBuffer.allocate(1 + bytes.length);
@@ -231,13 +221,10 @@ public class DataPacket {
 			return new JSONObject(new JSONTokener((String)data));
 		} else if (type == FORMAT_JSON_ARRAY) {
 			return new JSONArray(new JSONTokener((String)data));
-		} else if (type == FORMAT_EXCEPTION) {
-			JSONObject ex = new JSONObject(new JSONTokener((String)data));
-			return new Exception(ex.optString("class") + ": " + ex.optString("message"));
-		} else if (type == FORMAT_OTHER) {
-			return data;
+		} else if (type == FORMAT_REMOTE_EX) {
+			return new RemoteException(data);
 		} else {
-			throw new IllegalArgumentException("Invalid arg type: " + type);
+			throw new IllegalArgumentException("Invalid data type: " + type);
 		}
 	}
 
@@ -278,8 +265,8 @@ public class DataPacket {
 		ByteBuffer buf = ByteBuffer.wrap(bytes);
 		DataPacket dp = new DataPacket();
 		dp.type = buf.get(0);
-		dp.time = buf.getLong(5);
-		dp.seq = buf.getLong(13);
+		dp.seq = buf.getLong(5);
+		dp.time = buf.getLong(13);
 		int l = buf.getInt(1);
 		dp.payload = Arrays.copyOfRange(bytes, HEADER_SIZE, HEADER_SIZE + l);
 		return dp;
@@ -309,6 +296,29 @@ public class DataPacket {
 			in.read(dp.payload, n, l - n);
 		}
 		return dp;
+	}
+
+	/**
+	 * Assert that the given object is the same as this packet
+	 */
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		DataPacket dp = (DataPacket)o;
+		if (type != dp.type) {
+			return false;
+		}
+		if (time != dp.time) {
+			return false;
+		}
+		if (seq != dp.seq) {
+			return false;
+		}
+		if (!Arrays.equals(payload, dp.payload)) {
+			return false;
+		}
+		return true;
 	}
 	
 }
