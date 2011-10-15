@@ -110,7 +110,9 @@ public class RPCRouter {
 	public void push(RemoteCall rc) {
 		Call call = new Call(rc);
 		outCalls.offer(call);
-		outWait.put(rc.getSeq(), call);
+		synchronized(outWait) {
+			outWait.put(rc.getSeq(), call);
+		}
 	}
 	
 	/**
@@ -134,7 +136,10 @@ public class RPCRouter {
 	 * @throws RemoteException When something went wrong on the remote side
 	 */
 	public Object getReturn(long seq) throws IllegalArgumentException, IllegalStateException, RemoteException {
-		Call call = outWait.remove(seq);
+		Call call;
+		synchronized(outWait) {
+			call = outWait.remove(seq);
+		}
 		if (call == null) {
 			throw new IllegalArgumentException("No such call: " + seq);
 		}
@@ -145,7 +150,9 @@ public class RPCRouter {
 			}
 			return ret;
 		}
-		outWait.put(seq, call);
+		synchronized(outWait) {
+			outWait.put(seq, call);
+		}
 		throw new IllegalStateException("Not returned yet");
 	}
 
@@ -185,6 +192,7 @@ public class RPCRouter {
 		}
 	}
 	
+	
 	/**
 	 * Receiving thread
 	 * @author ben
@@ -196,7 +204,6 @@ public class RPCRouter {
 		
 		public RecvThread(RPCRouter r) {
 			super("RPC receiving thread");
-			setDaemon(false);
 			on = true;
 			router = r;
 		}
@@ -219,11 +226,17 @@ public class RPCRouter {
 							rc = RemoteCall.fromPacket(dp);
 							Call c = new Call(rc);
 							router.inCalls.offer(c);
-							router.inWait.put(rc.getSeq(), c);
+							synchronized(router.inWait) {
+								router.inWait.put(rc.getSeq(), c);
+							}
 						} else if (dp.getType() == RemoteCallReturn.TYPE) {
 							/* Process a call return */
 							rcr = RemoteCallReturn.fromPacket(dp);
-							if ((call = router.outWait.get(rcr.getSeq())) != null) {
+							synchronized(router.outWait) {
+								call = router.outWait.get(rcr.getSeq());
+								System.out.println("Got call return for " + rcr.getSeq());
+							}
+							if (call != null) {
 								call.setReturned(rcr.getValue());
 							} else {
 								throw new Exception("Received return for unknown call: " + rcr.getSeq());
@@ -255,7 +268,6 @@ public class RPCRouter {
 		
 		public XmitThread(RPCRouter r) {
 			super("RPC sending thread");
-			setDaemon(false);
 			on = true;
 			router = r;
 		}
@@ -270,12 +282,13 @@ public class RPCRouter {
 			Call call;
 			while (on) {
 				try {
-					if ((call = router.outCalls.get()) != null) {
+					if ((call = router.outCalls.poll()) != null) {
 						rc = call.getRemoteCall();
 						/* Update call status */
 						call.setPending();
 						/* Send remote call */
 						router.transp.send(rc);
+						System.out.println("Sent call " + rc.getSeq());
 					}
 				} catch (IOException e) {
 					/* Connection error, abort all */
@@ -302,7 +315,6 @@ public class RPCRouter {
 		
 		public CallProcessor(RPCRouter r) {
 			super("RPC call processor");
-			setDaemon(false);
 			on = true;
 			router = r;
 		}
@@ -318,11 +330,10 @@ public class RPCRouter {
 			Object ret;
 			while (on) {
 				try {
-					if ((call = router.inCalls.get()) != null) {
+					if ((call = router.inCalls.poll()) != null) {
 						rc = call.getRemoteCall();
 						/* Update call status to 'pending' */
 						call.setPending();
-						router.inWait.put(rc.getSeq(), call);
 						/* Make the actual call */
 						ret = makeCall(rc);
 						/* Update call status to 'returned' */

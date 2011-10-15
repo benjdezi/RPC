@@ -30,12 +30,30 @@ public class RPCRouterTest extends TestCase {
 
 	@Test
 	public void testOneCallBlocking() throws InterruptedException {
-		// TODO: write test for getReturnBlocking
+		router.start();
+		RemoteCall rc = new RemoteCall("testMethod", true);
+		router.push(rc);
+		try {
+			router.getReturnBlocking(rc);
+		} catch (RemoteException e) {
+			fail("There should not be any remote error here");
+		}
 	}
 
 	@Test
+	public void _testOneCallTimeout() throws InterruptedException {
+		// TODO: test call timeout
+	}
+	
+	@Test
 	public void testRemoteException() throws InterruptedException {
-		// TODO: write test for a call that would cause a remote error
+		router.start();
+		RemoteCall rc = new RemoteCall("testMethod", "failure");
+		router.push(rc);
+		try {
+			router.getReturnBlocking(rc);
+			fail("There should have been a remote exception");
+		} catch (RemoteException e) {}
 	}
 	
 	@Test
@@ -44,6 +62,8 @@ public class RPCRouterTest extends TestCase {
 		assertFalse(router.isAlive());
 		router.start();
 		assertTrue(router.isAlive());
+		
+		long t;
 		
 		/* Test one call for various type of call argument */
 		for (Object arg:callArgs) {
@@ -57,11 +77,11 @@ public class RPCRouterTest extends TestCase {
 			} catch (IllegalArgumentException e) {
 			} catch (RemoteException e) {}
 			
+			t = System.currentTimeMillis();
+			System.out.print("Testing remote call for arg = " + arg + "... ");
+			
 			/* Make a remote call */
 			router.push(rc);
-			
-			/* Wait so that we're shure the call is in outWait */
-			Thread.sleep(500);
 			
 			/* Wait for the call return */
 			Object ret;
@@ -75,14 +95,25 @@ public class RPCRouterTest extends TestCase {
 					}
 					break;
 				} catch (IllegalStateException e) {
-					Thread.sleep(100);
+					Thread.sleep(10);
 				} catch (IllegalArgumentException e) {
 					fail("The call should be registered by now!");
 				} catch (RemoteException e) {
 					fail("There should not be any remote error here: " + e.getMessage());
 				}
 			}
-		
+			
+			System.out.println("Done [" + (System.currentTimeMillis() - t) + "]");
+			
+			/* Make sure that the call has been removed */
+			try {
+				router.getReturn(rc);
+				fail("This should have raised an exception");
+			} catch (IllegalArgumentException e) {
+			} catch (Exception e) {
+				fail("It should not have ended up here");
+			}
+			
 		}
  
 	}
@@ -94,9 +125,9 @@ public class RPCRouterTest extends TestCase {
 	protected class TestRPCObject implements RPCObject {
 		
 		@RPCMethod
-		public Object testMethod(Object arg) throws Exception {
+		public Object testMethod(Object arg) throws IOException {
 			if ("failure".equals(arg)) {
-				throw new Exception("test failure");
+				throw new IOException("fake IO exception");
 			}
 			return arg;
 		}
@@ -120,7 +151,11 @@ public class RPCRouterTest extends TestCase {
 			byte[] data = q.get();
 			try {
 				if (data != null) {
-					return DataPacket.fromBytes(data);
+					try {
+						/* Simulate network delay */
+						Thread.sleep(10);
+						return DataPacket.fromBytes(data);
+					} catch (InterruptedException e) {}
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -130,7 +165,11 @@ public class RPCRouterTest extends TestCase {
 
 		@Override
 		public void send(DataPacket dp) throws IOException {
-			q.put(dp.getBytes());
+			q.offer(dp.getBytes());
+			try {
+				/* Simulate network delay */
+				Thread.sleep(10);
+			} catch (InterruptedException e) {}
 		}
 
 		@Override

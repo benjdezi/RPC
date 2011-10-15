@@ -10,7 +10,7 @@ import java.util.ArrayList;
 public class Queue<T> {
 
 	private static final long serialVersionUID = 1L;
-	private Object GOT_ITEM = new Object();				// Sync object
+	private Object gotItem = new Object();				// Sync object
 	private List<T> items;								// Queue items
 	
 	/**
@@ -64,12 +64,18 @@ public class Queue<T> {
 				}
 			}
 			/* No item available, let's wait */
-			synchronized(GOT_ITEM) {
-				if (timeout > 0) {
-					GOT_ITEM.wait(exitTime - System.currentTimeMillis() + 1);
-				} else {
-					GOT_ITEM.wait();
+			try {
+				synchronized(gotItem) {
+					if (timeout > 0) {
+						/* Wait up to timeout */
+						gotItem.wait(exitTime - System.currentTimeMillis() + 1);
+					} else {
+						/* Wait a little while */
+						gotItem.wait(1000);
+					}
 				}
+			} catch (InterruptedException e) {
+				return null;
 			}
 		} while (timeout < 0 || System.currentTimeMillis() < exitTime);
 		/* Got nothing */
@@ -81,10 +87,12 @@ public class Queue<T> {
 	 * @return T Null if empty
 	 */
 	public T peek() {
-		if (items.size() == 0) {
-			return null;
+		synchronized(items) {
+			if (items.size() == 0) {
+				return null;
+			}
+			return items.get(0);
 		}
-		return items.get(0);
 	}
 	
 	/**
@@ -92,12 +100,16 @@ public class Queue<T> {
 	 * @param o T - Element to put in the queue
 	 * @return boolean True upon success
 	 */
-	public synchronized boolean offer(T o) {
+	public boolean offer(T o) {
 		if (o != null) {
-			synchronized(GOT_ITEM) {
-				GOT_ITEM.notifyAll();
+			boolean res;
+			synchronized(items) {
+				res = items.add(o);
 			}
-			return items.add(o);
+			synchronized(gotItem) {
+				gotItem.notifyAll();
+			}
+			return res;
 		}
 		throw new IllegalArgumentException("invalid item");
 	}
@@ -106,23 +118,29 @@ public class Queue<T> {
 	 * Return the current size of the queue
 	 * @return int 
 	 */
-	public synchronized int size() {
-		return items.size();
+	public int size() {
+		synchronized(items) {
+			return items.size();
+		}
 	}
 		
 	/**
 	 * Return true if there are no items in the queue
 	 * @return boolean
 	 */
-	public synchronized boolean isEmpty() {
-		return items.size() == 0;
+	public boolean isEmpty() {
+		synchronized(items) {
+			return (items.size() == 0);
+		}
 	}
 	
 	/**
 	 * Discard all items currently in queue
 	 */
-	public synchronized void clear() {
-		items.clear();
+	public void clear() {
+		synchronized(items) {
+			items.clear();
+		}
 	}	
 	
 }
