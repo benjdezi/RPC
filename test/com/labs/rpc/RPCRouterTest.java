@@ -1,6 +1,7 @@
 package com.labs.rpc;
 
 import java.util.*;
+import java.util.concurrent.TimeoutException;
 import java.io.IOException;
 import junit.framework.*;
 import org.junit.Test;
@@ -35,14 +36,23 @@ public class RPCRouterTest extends TestCase {
 		router.push(rc);
 		try {
 			router.getReturnBlocking(rc);
-		} catch (RemoteException e) {
-			fail("There should not be any remote error here");
+		} catch (Exception e) {
+			fail("There should not be any error here: " + e.getMessage());
 		}
 	}
 
 	@Test
-	public void _testOneCallTimeout() throws InterruptedException {
-		// TODO: test call timeout
+	public void testOneCallTimeout() throws InterruptedException {
+		router.start();
+		RemoteCall rc = new RemoteCall("testMethod", "timeout");
+		router.push(rc);
+		try {
+			router.getReturnBlocking(rc);
+			fail("It should have timed out");
+		} catch(TimeoutException e) {
+		} catch (Exception e) {
+			fail("There should not be any error here: " + e.getMessage());
+		}
 	}
 	
 	@Test
@@ -53,7 +63,11 @@ public class RPCRouterTest extends TestCase {
 		try {
 			router.getReturnBlocking(rc);
 			fail("There should have been a remote exception");
-		} catch (RemoteException e) {}
+		} catch (RemoteException e) {
+		} catch (TimeoutException e) {
+			fail("It should not have timed out");
+		}
+		
 	}
 	
 	@Test
@@ -75,7 +89,11 @@ public class RPCRouterTest extends TestCase {
 				router.getReturn(rc);
 				fail("It should have complained that this call does not exist");
 			} catch (IllegalArgumentException e) {
-			} catch (RemoteException e) {}
+			} catch (RemoteException e) {
+				fail("This can't be, there's not matching call");
+			} catch (TimeoutException e) {
+				fail("This can't be, there's not matching call");
+			}
 			
 			t = System.currentTimeMillis();
 			System.out.print("Testing remote call for arg = " + arg + "... ");
@@ -100,6 +118,8 @@ public class RPCRouterTest extends TestCase {
 					fail("The call should be registered by now!");
 				} catch (RemoteException e) {
 					fail("There should not be any remote error here: " + e.getMessage());
+				} catch (TimeoutException e) {
+					fail("This should not have timed out");
 				}
 			}
 			
@@ -125,9 +145,13 @@ public class RPCRouterTest extends TestCase {
 	protected class TestRPCObject implements RPCObject {
 		
 		@RPCMethod
-		public Object testMethod(Object arg) throws IOException {
+		public Object testMethod(Object arg) throws Exception {
 			if ("failure".equals(arg)) {
 				throw new IOException("fake IO exception");
+			} else if ("timeout".equals(arg)) {
+				try {
+					Thread.sleep(2*RPCRouter.TIMEOUT*1000);
+				} catch (InterruptedException e) {}
 			}
 			return arg;
 		}

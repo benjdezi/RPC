@@ -4,56 +4,61 @@ import com.labs.rpc.RemoteCall;
 
 public class Call {
 	
-	private static final byte FAILED = -1;
+	private static final byte TIMEOUT = -1;
 	private static final byte UNPROCESSED = 0;
 	private static final byte PENDING = 1;
 	private static final byte RETURNED = 2;
 	
-	private RemoteCall rc;	// Initial call
-	private Object ret;		// Returned value
-	private byte status;	// Call status
+	private RemoteCall rc;		// Initial call
+	private Object ret;			// Returned value
+	private byte status;		// Call status
+	private long startTime;		// Start time
 	
 	public Call(RemoteCall remoteCall) {
 		rc = remoteCall;
 		status = UNPROCESSED;
 		ret = null;
+		startTime = System.currentTimeMillis();
 	}
 	
-	public byte getStatus() {
+	public synchronized long getStartTime() {
+		return startTime;
+	}
+	
+	public synchronized byte getStatus() {
 		return status;
 	}
 	
-	public boolean isPending() {
+	public synchronized boolean isPending() {
 		return status == PENDING;
 	}
 
-	public boolean isReturned() {
+	public synchronized boolean isReturned() {
 		return status == RETURNED;
 	}
-	
-	public boolean isFailed() {
-		return status == FAILED;
+
+	public synchronized boolean isTimedOut() {
+		return status == TIMEOUT;
 	}
-	
-	public void setPending() {
+		
+	public synchronized void setPending() {
 		status = PENDING;
 	}
 	
-	public void setReturned(Object val) {
+	public synchronized void setReturned(Object val) {
 		ret = val;
 		status = RETURNED;
 	}
 	
-	public void setFailed(Exception e) {
-		ret = e;
-		status = FAILED;
+	public synchronized void setTimedOut() {
+		status = TIMEOUT;
 	}
 	
-	public RemoteCall getRemoteCall() {
+	public synchronized RemoteCall getRemoteCall() {
 		return rc;
 	}
 	
-	public Object getReturnValue() {
+	public synchronized Object getReturnValue() {
 		return ret;
 	}
 }

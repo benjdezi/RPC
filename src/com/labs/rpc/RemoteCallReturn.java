@@ -86,9 +86,9 @@ public class RemoteCallReturn extends DataPacket {
 				return false;
 			}
 		} else if (val instanceof JSONObject && rcr.val instanceof JSONObject) {
-			// TODO
+			// TODO: JSON equals
 		} else if (val instanceof JSONArray && rcr.val instanceof JSONArray) {
-			// TODO
+			// TODO: JSONArray equals
 		} else if (!val.equals(rcr.val)) {
 			return false;
 		}

@@ -5,6 +5,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import com.labs.rpc.util.Call;
 import com.labs.rpc.util.Queue;
@@ -12,25 +13,26 @@ import com.labs.rpc.util.RPCMethod;
 import com.labs.rpc.util.RPCObject;
 import com.labs.rpc.util.RemoteException;
 
-// TODO: Implement timeout
-
 /**
  * Handle incoming and outgoing calls
  * @author ben
  */
 public class RPCRouter {
 
-	private AtomicBoolean killed;		// Whether this router is dead
+	protected static final int TIMEOUT = 5;	// Call timeout in seconds
 	
-	private Transport transp;			// Object transport
-	private RPCObject rpcObj;			// RPC object to apply incoming call onto
-	private Queue<Call> outCalls;		// Outgoing calls waiting to be sent
-	private Map<Long,Call> outWait;		// Outgoing calls waiting for returns
-	private Queue<Call> inCalls;		// Incoming calls waiting for processing
-	private Map<Long,Call> inWait;		// Incoming calls waiting for end of processing
-	private RecvThread recvLoop;		// Receiving thread
-	private XmitThread sendLoop;		// Sending thread
-	private CallProcessor callProc;		// Processing thread for incoming calls
+	private AtomicBoolean killed;			// Whether this router is dead
+	
+	private Transport transp;				// Object transport
+	private RPCObject rpcObj;				// RPC object to apply incoming call onto
+	private Queue<Call> outCalls;			// Outgoing calls waiting to be sent
+	private Map<Long,Call> outWait;			// Outgoing calls waiting for returns
+	private Queue<Call> inCalls;			// Incoming calls waiting for processing
+	private Map<Long,Call> inWait;			// Incoming calls waiting for end of processing
+	private RecvThread recvLoop;			// Receiving thread
+	private XmitThread sendLoop;			// Sending thread
+	private CallProcessor callProc;			// Processing thread for incoming calls
+	private CallTimeOuter timouter;			// Call timeouter
 		
 	/**
 	 * Create a new router
@@ -42,6 +44,7 @@ public class RPCRouter {
 		recvLoop = new RecvThread(this);
 		sendLoop = new XmitThread(this);
 		callProc = new CallProcessor(this);
+		timouter = new CallTimeOuter(this);
 		transp = transport;
 		rpcObj = obj;
 	}
@@ -55,6 +58,7 @@ public class RPCRouter {
 		outWait = new HashMap<Long,Call>(0);
 		inCalls = new Queue<Call>();
 		inWait = new HashMap<Long,Call>(0);
+		timouter.start();
 		recvLoop.start();
 		sendLoop.start();
 		callProc.start();
@@ -92,6 +96,7 @@ public class RPCRouter {
 		callProc.interrupt();
 		recvLoop.interrupt();
 		sendLoop.interrupt();
+		timouter.interrupt();
 		transp.shutdown();		
 	}
 	
@@ -122,8 +127,9 @@ public class RPCRouter {
 	 * @throws IllegalStateException If not available yet
 	 * @throws IllegalArgumentException If not found
 	 * @throws RemoteException When something went wrong on the remote side
+	 * @throws TimeoutException When the call fails to return in time
 	 */
-	public Object getReturn(RemoteCall rc) throws IllegalArgumentException, IllegalStateException, RemoteException {
+	public Object getReturn(RemoteCall rc) throws IllegalArgumentException, IllegalStateException, RemoteException, TimeoutException {
 		return getReturn(rc.getSeq());
 	}
 	
@@ -134,8 +140,9 @@ public class RPCRouter {
 	 * @throws IllegalStateException If not available yet
 	 * @throws IllegalArgumentException If not found
 	 * @throws RemoteException When something went wrong on the remote side
+	 * @throws TimeoutException When the call fails to return in time
 	 */
-	public Object getReturn(long seq) throws IllegalArgumentException, IllegalStateException, RemoteException {
+	public Object getReturn(long seq) throws IllegalArgumentException, IllegalStateException, RemoteException, TimeoutException {
 		Call call;
 		synchronized(outWait) {
 			call = outWait.remove(seq);
@@ -144,12 +151,17 @@ public class RPCRouter {
 			throw new IllegalArgumentException("No such call: " + seq);
 		}
 		if (call.isReturned()) {
+			/* Got return value */
 			Object ret = call.getReturnValue();
 			if (ret instanceof RemoteException) {
 				throw (RemoteException)ret;
 			}
 			return ret;
+		} else if (call.isTimedOut()) {
+			/* Timed out */
+			throw new TimeoutException();
 		}
+		/* Still pending so put it back and exit */
 		synchronized(outWait) {
 			outWait.put(seq, call);
 		}
@@ -160,9 +172,11 @@ public class RPCRouter {
 	 * Wait until the given call returns
 	 * @param rc {@link RemoteCall} - Initial call
 	 * @return {@link Object} Returned value
+	 * @throws IllegalArgumentException If not found
 	 * @throws RemoteException When something went wrong on the remote side
+	 * @throws TimeoutException When the call fails to return in time
 	 */
-	public Object getReturnBlocking(RemoteCall rc) throws RemoteException {
+	public Object getReturnBlocking(RemoteCall rc) throws IllegalArgumentException, RemoteException, TimeoutException {
 		return getReturnBlocking(rc.getSeq());
 	}
 	
@@ -172,8 +186,9 @@ public class RPCRouter {
 	 * @return {@link Object} Returned value
 	 * @throws IllegalArgumentException If not found
 	 * @throws RemoteException When something went wrong on the remote side
+	 * @throws TimeoutException When the call fails to return in time
 	 */
-	public Object getReturnBlocking(long seq) throws IllegalArgumentException, RemoteException {
+	public Object getReturnBlocking(long seq) throws IllegalArgumentException, RemoteException, TimeoutException {
 		try {
 			while (true) {
 				try {
@@ -182,9 +197,6 @@ public class RPCRouter {
 					/* Not here yet */
 					Thread.sleep(25);
 					continue;
-				} catch (IllegalArgumentException e) {
-					/* Call not found */
-					throw e;
 				}
 			}
 		} catch (InterruptedException e) {
@@ -204,6 +216,7 @@ public class RPCRouter {
 		
 		public RecvThread(RPCRouter r) {
 			super("RPC receiving thread");
+			setDaemon(false);
 			on = true;
 			router = r;
 		}
@@ -237,15 +250,21 @@ public class RPCRouter {
 								System.out.println("Got call return for " + rcr.getSeq());
 							}
 							if (call != null) {
-								call.setReturned(rcr.getValue());
+								if (call.isPending()) {
+									call.setReturned(rcr.getValue());
+								}
 							} else {
 								throw new Exception("Received return for unknown call: " + rcr.getSeq());
 							}
 						}
+					} else {
+						Thread.sleep(50);
 					}
 				} catch (IOException e) {
 					/* Connection error, abort all */
 					router.kill();
+					break;
+				} catch (InterruptedException e) {
 					break;
 				} catch (Exception e) {
 					System.err.println("Error while receiving rpc data");
@@ -268,6 +287,7 @@ public class RPCRouter {
 		
 		public XmitThread(RPCRouter r) {
 			super("RPC sending thread");
+			setDaemon(false);
 			on = true;
 			router = r;
 		}
@@ -315,6 +335,7 @@ public class RPCRouter {
 		
 		public CallProcessor(RPCRouter r) {
 			super("RPC call processor");
+			setDaemon(false);
 			on = true;
 			router = r;
 		}
@@ -409,6 +430,56 @@ public class RPCRouter {
 				e.getTargetException().printStackTrace();
 			}
 			return ret;
+		}
+		
+	}
+	
+	
+	/**
+	 * Monitor pending calls for timeouts
+	 * @author ben
+	 */
+	private static class CallTimeOuter extends Thread {
+		
+		private boolean on;
+		private RPCRouter router;
+		
+		public CallTimeOuter(RPCRouter r) {
+			super("RPC call timeouter");
+			setDaemon(false);
+			on = true;
+			router = r;
+		}
+		
+		public void interrupt() {
+			on = false;
+			super.interrupt();
+		}
+		
+		public void run() {
+			Call call;
+			Set<Long> callSeqs;
+			while (on) {
+				/* Get the calls to loop over */
+				synchronized(router.outWait) {
+					callSeqs = new HashSet<Long>(router.outWait.keySet());
+				}
+				if (callSeqs.size() > 0) {
+					for (Long seq:callSeqs) {
+						synchronized(router.outWait) {	
+							call = router.outWait.get(seq); 
+						}
+						if (call != null && call.getStartTime() + RPCRouter.TIMEOUT * 1000 < System.currentTimeMillis()) {
+							call.setTimedOut();
+						}
+					}
+				}
+				try {
+					Thread.sleep(100);
+				} catch (InterruptedException e) {
+					break;
+				}
+			}
 		}
 		
 	}
