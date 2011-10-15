@@ -10,7 +10,7 @@ import java.util.ArrayList;
 public class Queue<T> {
 
 	private static final long serialVersionUID = 1L;
-	private static final int WAIT_DELAY = 100;			// Delay before retrying to get an item (in ms)
+	private Object GOT_ITEM = new Object();				// Sync object
 	private List<T> items;								// Queue items
 	
 	/**
@@ -18,6 +18,18 @@ public class Queue<T> {
 	 */
 	public Queue() {
 		items = new ArrayList<T>(0);
+	}
+	
+	/**
+	 * Block until an item becomes available 
+	 * @return T
+	 */
+	public T poll() {
+		try {
+			return get(-1);
+		} catch (InterruptedException e) {
+			return null;
+		}
 	}
 	
 	/**
@@ -34,30 +46,45 @@ public class Queue<T> {
 	
 	/**
 	 * Get the next element in the queue
-	 * @param timeout long - Maximum number of seconds to wait for an element
+	 * @param timeout double - Maximum number of seconds to wait for an element
 	 * @return T The next available item or null if none found
 	 * @throws InterruptedException
 	 */
-	public T get(long timeout) throws InterruptedException {
-		long t = timeout > 0 ? System.currentTimeMillis() : 0;
+	public T get(double timeout) throws InterruptedException {
+		long timeoutMilli = (long)(timeout * 1000);
+		long exitTime = System.currentTimeMillis() + timeoutMilli;
 		do {
 			synchronized(items) {
 				if (items.size() > 0) {
-					try {
-						/* Trying to get an item */
-						return items.remove(0);
-					} catch (IndexOutOfBoundsException e) {
-						if (t <= 0) {
-							/* No wait */
-							break;
-						}
-					}
+					/* Got an item */
+					return items.remove(0);
+				} else if (timeout == 0) {
+					/* No timeout, we're done here */
+					break;
 				}
 			}
-			Thread.sleep(WAIT_DELAY);
-		} while (System.currentTimeMillis()-t < timeout*1000);
+			/* No item available, let's wait */
+			synchronized(GOT_ITEM) {
+				if (timeout > 0) {
+					GOT_ITEM.wait(exitTime - System.currentTimeMillis() + 1);
+				} else {
+					GOT_ITEM.wait();
+				}
+			}
+		} while (timeout < 0 || System.currentTimeMillis() < exitTime);
 		/* Got nothing */
 		return null;
+	}
+	
+	/**
+	 * Return the head without removing it from the queue
+	 * @return T Null if empty
+	 */
+	public T peek() {
+		if (items.size() == 0) {
+			return null;
+		}
+		return items.get(0);
 	}
 	
 	/**
@@ -65,8 +92,11 @@ public class Queue<T> {
 	 * @param o T - Element to put in the queue
 	 * @return boolean True upon success
 	 */
-	public synchronized boolean put(T o) {
+	public synchronized boolean offer(T o) {
 		if (o != null) {
+			synchronized(GOT_ITEM) {
+				GOT_ITEM.notifyAll();
+			}
 			return items.add(o);
 		}
 		throw new IllegalArgumentException("invalid item");
@@ -93,6 +123,6 @@ public class Queue<T> {
 	 */
 	public synchronized void clear() {
 		items.clear();
-	}
+	}	
 	
 }

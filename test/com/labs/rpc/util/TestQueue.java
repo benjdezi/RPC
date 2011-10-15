@@ -10,7 +10,7 @@ public class TestQueue extends TestCase {
 	public void testPut() {
 		Queue<Object> q = new Queue<Object>();
 		assertEquals(q.size(),0);
-		q.put(new Object());
+		q.offer(new Object());
 		assertEquals(q.size(),1);
 	}
 	
@@ -18,8 +18,8 @@ public class TestQueue extends TestCase {
 	public void testGet() {
 		Object o = new Object();
 		Queue<Object> q = new Queue<Object>(); 
-		q.put(o);
-		assertEquals(q.get(),o);
+		q.offer(o);
+		assertEquals(q.poll(),o);
 		assertEquals(q.size(),0);
 	}
 	
@@ -37,8 +37,8 @@ public class TestQueue extends TestCase {
 			fail("There is no reason to be interrupted here");
 		}
 		try {
-			q.put(o);
-			assertEquals(q.get(timeout),o);
+			q.offer(o);
+			assertEquals(q.get(timeout), o);
 		} catch (Exception e) {
 			fail("Should not have failed here");
 		}
