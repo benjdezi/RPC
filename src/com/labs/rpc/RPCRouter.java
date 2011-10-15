@@ -108,7 +108,9 @@ public class RPCRouter {
 	 * @param rc {@link RemoteCall} - Call to send
 	 */
 	public void push(RemoteCall rc) {
-		outCalls.put(new Call(rc));
+		Call call = new Call(rc);
+		outCalls.offer(call);
+		outWait.put(rc.getSeq(), call);
 	}
 	
 	/**
@@ -132,7 +134,7 @@ public class RPCRouter {
 	 * @throws RemoteException When something went wrong on the remote side
 	 */
 	public Object getReturn(long seq) throws IllegalArgumentException, IllegalStateException, RemoteException {
-		Call call = outWait.get(seq);
+		Call call = outWait.remove(seq);
 		if (call == null) {
 			throw new IllegalArgumentException("No such call: " + seq);
 		}
@@ -143,6 +145,7 @@ public class RPCRouter {
 			}
 			return ret;
 		}
+		outWait.put(seq, call);
 		throw new IllegalStateException("Not returned yet");
 	}
 
@@ -214,7 +217,9 @@ public class RPCRouter {
 						if (dp.getType() == RemoteCall.TYPE) {
 							/* Process an incoming call */
 							rc = RemoteCall.fromPacket(dp);
-							router.inCalls.put(new Call(rc));
+							Call c = new Call(rc);
+							router.inCalls.offer(c);
+							router.inWait.put(rc.getSeq(), c);
 						} else if (dp.getType() == RemoteCallReturn.TYPE) {
 							/* Process a call return */
 							rcr = RemoteCallReturn.fromPacket(dp);
@@ -269,7 +274,6 @@ public class RPCRouter {
 						rc = call.getRemoteCall();
 						/* Update call status */
 						call.setPending();
-						router.outWait.put(rc.getSeq(), call);
 						/* Send remote call */
 						router.transp.send(rc);
 					}
