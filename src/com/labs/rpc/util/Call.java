@@ -13,12 +13,36 @@ public class Call {
 	private Object ret;			// Returned value
 	private byte status;		// Call status
 	private long startTime;		// Start time
+	private Object syncObj;		// Synchronization object
 	
 	public Call(RemoteCall remoteCall) {
 		rc = remoteCall;
 		status = UNPROCESSED;
 		ret = null;
 		startTime = System.currentTimeMillis();
+		syncObj = new Object();
+	}
+	
+	public void waitForReturn() throws InterruptedException {
+		waitForReturn(0);
+	}
+	
+	public void waitForReturn(long timeout) throws InterruptedException {
+		if (status == PENDING || status == UNPROCESSED) {
+			/* Not returned yet, let's wait */
+			synchronized(syncObj) {
+				syncObj.wait(timeout);
+			}
+		} else {
+			/* Already returned, we're done here */
+			return;
+		}
+	}
+	
+	public void notifyReturn() {
+		synchronized(syncObj) {
+			syncObj.notifyAll();
+		}
 	}
 	
 	public synchronized long getStartTime() {
@@ -48,10 +72,12 @@ public class Call {
 	public synchronized void setReturned(Object val) {
 		ret = val;
 		status = RETURNED;
+		notifyReturn();
 	}
 	
 	public synchronized void setTimedOut() {
 		status = TIMEOUT;
+		notifyReturn();
 	}
 	
 	public synchronized RemoteCall getRemoteCall() {

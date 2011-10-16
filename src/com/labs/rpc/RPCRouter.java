@@ -190,15 +190,17 @@ public class RPCRouter {
 	 */
 	public Object getReturnBlocking(long seq) throws IllegalArgumentException, RemoteException, TimeoutException {
 		try {
-			while (true) {
-				try {
+//			while (true) {
+//				try {
+//					return getReturn(seq);
+//				} catch (IllegalStateException e) {
+//					/* Not returned yet */
+					Call call;
+					synchronized(outWait) { call = outWait.get(seq); }
+					call.waitForReturn();
 					return getReturn(seq);
-				} catch (IllegalStateException e) {
-					/* Not here yet */
-					Thread.sleep(25);
-					continue;
-				}
-			}
+//				}
+//			}
 		} catch (InterruptedException e) {
 			return null;
 		}
@@ -247,18 +249,21 @@ public class RPCRouter {
 							rcr = RemoteCallReturn.fromPacket(dp);
 							synchronized(router.outWait) {
 								call = router.outWait.get(rcr.getSeq());
-								System.out.println("Got call return for " + rcr.getSeq());
 							}
-							if (call != null) {
-								if (call.isPending()) {
-									call.setReturned(rcr.getValue());
+							if (call == null) {
+								Thread.sleep(2);
+								/* Retrying as it may have returned before being queued */
+								synchronized(router.outWait) {
+									call = router.outWait.get(rcr.getSeq());
 								}
-							} else {
-								throw new Exception("Received return for unknown call: " + rcr.getSeq());
+							}
+							if (call == null) {
+								throw new Exception("Received return for unknown call: " + rcr.getSeq() + ", outWait = " + router.outWait.toString());	
+							}
+							if (call.isPending()) {
+								call.setReturned(rcr.getValue());
 							}
 						}
-					} else {
-						Thread.sleep(50);
 					}
 				} catch (IOException e) {
 					/* Connection error, abort all */
@@ -308,7 +313,6 @@ public class RPCRouter {
 						call.setPending();
 						/* Send remote call */
 						router.transp.send(rc);
-						System.out.println("Sent call " + rc.getSeq());
 					}
 				} catch (IOException e) {
 					/* Connection error, abort all */
@@ -357,8 +361,8 @@ public class RPCRouter {
 						call.setPending();
 						/* Make the actual call */
 						ret = makeCall(rc);
-						/* Update call status to 'returned' */
-						call.setReturned(ret);
+						/* Remove the call from the waiting list */
+						router.inWait.remove(call.getRemoteCall().getSeq());
 						/* Send return value back to caller */
 						router.transp.send(new RemoteCallReturn(rc, ret));
 					}
