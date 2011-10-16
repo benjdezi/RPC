@@ -2,8 +2,8 @@ HOW TO COMPILE EVERYTHING:
 --------------------------
 
 cd native
-javac com/labs/rpc/CDataPacket.java  --> CDataPacket.class
-javah com.labs.rpc.CDataPacket --> com_labs_rpc_CDataPacket.h
+javac com/labs/rpc/MyClass.java  --> MyClass.class
+javah com.labs.rpc.MyClass --> com_labs_rpc_MyClass.h
 
-gcc -I/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/include/ -fPIC -c CDataPacket.c --> CDataPacket.o
-gcc -shared -Wl -o libCDataPacket.dylib CDataPacket.o --> libCDataPacket.dylib
+gcc -I/System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Home/include/ -fPIC -c MyClass.c --> MyClass.o
+gcc -shared -Wl -o libmyclass.dylib MyClass.o --> libmyclass.dylib
