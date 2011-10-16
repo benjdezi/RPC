@@ -53,7 +53,7 @@ public class DataPacket {
 	/**
 	 * Create an empty data packet
 	 */
-	private DataPacket() {
+	protected DataPacket() {
 		this((byte)0,0);
 	}
 	

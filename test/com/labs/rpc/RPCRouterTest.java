@@ -30,6 +30,55 @@ public class RPCRouterTest extends TestCase {
 	}
 
 	@Test
+	public void testPerformance() {
+		router.start();
+		RemoteCall rc;
+		long dt,t;
+		/* Many sequential calls */
+		for (int i=0;i<250;i++) {
+			t = System.currentTimeMillis();
+			rc = new RemoteCall("testMethod", true);
+			router.push(rc);
+			try {
+				assertTrue((Boolean)router.getReturnBlocking(rc));
+			} catch (IllegalArgumentException e) {
+				fail("The call should exist");
+			} catch (RemoteException e) {
+				fail("There should not be any remote error");
+			} catch (TimeoutException e) {
+				fail("It should not timeout here");
+			}
+			dt = System.currentTimeMillis() - t;
+			System.out.println("Made perf test call #" + rc.getSeq() + " and returned in " + dt + " ms");
+		}
+		/* Many calls in bulk */
+		Set<Long> seqNums = new HashSet<Long>(250);
+		for (int i=0;i<250;i++) {
+			t = System.currentTimeMillis();
+			rc = new RemoteCall("testMethod", true);
+			router.push(rc);
+			dt = System.currentTimeMillis() - t;
+			System.out.println("Made perf test call #" + rc.getSeq() + " in " + dt + " ms");
+			seqNums.add(rc.getSeq());
+		}
+		for (Long seq:seqNums) {
+			t = System.currentTimeMillis();
+			try {
+				assertTrue((Boolean)router.getReturnBlocking(seq));
+			} catch (IllegalArgumentException e) {
+				fail("The call should exist");
+			} catch (RemoteException e) {
+				fail("There should not be any remote error");
+			} catch (TimeoutException e) {
+				// Timeouts are expected here...
+				continue;
+			}
+			dt = System.currentTimeMillis() - t;
+			System.out.println("Got perf test call return #" + seq + " in " + dt + " ms");
+		}
+	}
+	
+	@Test
 	public void testOneCallBlocking() throws InterruptedException {
 		router.start();
 		RemoteCall rc = new RemoteCall("testMethod", true);
@@ -154,6 +203,11 @@ public class RPCRouterTest extends TestCase {
 				} catch (InterruptedException e) {}
 			}
 			return arg;
+		}
+		
+		@RPCMethod
+		public void testMethod2(Object arg1, Object arg2) {
+			return;
 		}
 	
 	}
