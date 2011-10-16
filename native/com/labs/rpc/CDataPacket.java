@@ -10,7 +10,7 @@ import java.util.Arrays;
 public class CDataPacket {
 
 	static {
-		System.loadLibrary("libcdatapacket");
+		System.loadLibrary("cdatapacket");
 	}
 	
 	private static Long seqCounter = 0L;	// Sequence counter
