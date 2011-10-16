@@ -19,7 +19,9 @@ public class RemoteCall extends DataPacket {
 	 * Create a new data packet
 	 */
 	private RemoteCall() {
-		this(null);
+		super();
+		meth = null;
+		args = null;
 	}
 	
 	/**
@@ -120,7 +122,7 @@ public class RemoteCall extends DataPacket {
 					return false;
 				}
 			} else if (arg1 instanceof JSONObject && arg2 instanceof JSONObject) {
-				// TODO: JSON equals
+				// TODO: JSONObject equals
 			} else if (arg1 instanceof JSONArray && arg2 instanceof JSONArray) {
 				// TODO: JSONArray equals
 			} else if (!arg1.equals(arg2)) {

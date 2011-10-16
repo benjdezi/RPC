@@ -16,7 +16,8 @@ public interface Transport {
 	public void send(DataPacket dp) throws IOException;
 	
 	/**
-	 * Get the next available data packet
+	 * Get the next available data packet.<br>
+	 * This should block until data is received.
 	 * @return {@link DataPacket}
 	 * @throws IOException
 	 */
