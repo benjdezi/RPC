@@ -18,6 +18,7 @@ public class RPCRouterTest extends TestCase {
 
 	private RPCRouter router;
 	private static final Object[] callArgs = new Object[]{1, true, null, 3.56, 6L, new String[]{"1","4fk"}, new ArrayList<String>(0)};
+	private static final int N_TEST = 100; 
 	
 	public void setUp() {
 		RPCObject obj = new TestRPCObject();
@@ -33,9 +34,9 @@ public class RPCRouterTest extends TestCase {
 	public void testPerformance() {
 		router.start();
 		RemoteCall rc;
-		long dt,t;
+		long dt,t,tt = 0;
 		/* Many sequential calls */
-		for (int i=0;i<250;i++) {
+		for (int i=0;i<N_TEST;i++) {
 			t = System.currentTimeMillis();
 			rc = new RemoteCall("testMethod", true);
 			router.push(rc);
@@ -50,17 +51,23 @@ public class RPCRouterTest extends TestCase {
 			}
 			dt = System.currentTimeMillis() - t;
 			System.out.println("Made perf test call #" + rc.getSeq() + " and returned in " + dt + " ms");
+			tt += dt;
 		}
+		System.out.println("Test call avg time = " + (tt / N_TEST) + " ms");
 		/* Many calls in bulk */
-		Set<Long> seqNums = new HashSet<Long>(250);
-		for (int i=0;i<250;i++) {
+		tt = 0;
+		Set<Long> seqNums = new HashSet<Long>(N_TEST);
+		for (int i=0;i<N_TEST;i++) {
 			t = System.currentTimeMillis();
 			rc = new RemoteCall("testMethod", true);
 			router.push(rc);
 			dt = System.currentTimeMillis() - t;
 			System.out.println("Made perf test call #" + rc.getSeq() + " in " + dt + " ms");
 			seqNums.add(rc.getSeq());
+			tt += dt;
 		}
+		System.out.println("Push call avg time = " + (tt / N_TEST) + " ms");
+		tt = 0;
 		for (Long seq:seqNums) {
 			t = System.currentTimeMillis();
 			try {
@@ -75,7 +82,9 @@ public class RPCRouterTest extends TestCase {
 			}
 			dt = System.currentTimeMillis() - t;
 			System.out.println("Got perf test call return #" + seq + " in " + dt + " ms");
+			tt += dt;
 		}
+		System.out.println("Get return avg time = " + (tt / N_TEST) + " ms");
 	}
 	
 	@Test
