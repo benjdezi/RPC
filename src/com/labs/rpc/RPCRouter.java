@@ -15,7 +15,7 @@ import com.labs.rpc.util.RemoteException;
 
 /**
  * Handle incoming and outgoing calls
- * @author ben
+ * @author Benjamin Dezile
  */
 public class RPCRouter {
 
@@ -209,7 +209,7 @@ public class RPCRouter {
 	
 	/**
 	 * Receiving thread
-	 * @author ben
+	 * @author Benjamin Dezile
 	 */
 	private static class RecvThread extends Thread {
 		
@@ -283,7 +283,7 @@ public class RPCRouter {
 	
 	/**
 	 * Sending thread
-	 * @author ben
+	 * @author Benjamin Dezile
 	 */
 	private static class XmitThread extends Thread {
 		
@@ -330,7 +330,7 @@ public class RPCRouter {
 	
 	/**
 	 * Processor incoming calls
-	 * @author ben
+	 * @author Benjamin Dezile
 	 */
 	private static class CallProcessor extends Thread {
 		
@@ -441,7 +441,7 @@ public class RPCRouter {
 	
 	/**
 	 * Monitor pending calls for timeouts
-	 * @author ben
+	 * @author Benjamin Dezile
 	 */
 	private static class CallTimeOuter extends Thread {
 		

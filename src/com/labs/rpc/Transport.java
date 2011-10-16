@@ -4,7 +4,7 @@ import java.io.IOException;
 
 /**
  * Abstract transport interface
- * @author ben
+ * @author Benjamin Dezile
  */
 public interface Transport {
 

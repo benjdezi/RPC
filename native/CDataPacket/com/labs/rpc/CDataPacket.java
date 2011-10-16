@@ -5,7 +5,7 @@ import java.util.Arrays;
 
 /**
  * Native data packet implementation
- * @author ben
+ * @author Benjamin Dezile
  */
 public class CDataPacket {
 

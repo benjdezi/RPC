@@ -5,7 +5,7 @@ import org.json.*;
 
 /**
  * Remote call packet
- * @author ben
+ * @author Benjamin Dezile
  */
 public class RemoteCall extends DataPacket {
 	

@@ -10,7 +10,7 @@ import com.labs.rpc.util.RemoteException;
 /**
  * Test that a remote call can be transmitted as bytes
  * and rebuilt identically on the other side
- * @author ben
+ * @author Benjamin Dezile
  */
 public class RemoteCallTest extends TestCase {
 

@@ -13,7 +13,7 @@ import com.labs.rpc.util.RemoteException;
 
 /**
  * Base for all transport packets
- * @author ben
+ * @author Benjamin Dezile
  */
 public class DataPacket {
 

@@ -5,7 +5,7 @@ import java.util.ArrayList;
 
 /**
  * Thread-safe fifo queue
- * @author ben
+ * @author Benjamin Dezile
  */
 public class Queue<T> {
 

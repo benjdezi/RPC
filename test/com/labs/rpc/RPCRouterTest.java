@@ -12,7 +12,7 @@ import com.labs.rpc.util.RemoteException;
 
 /**
  * Test the basic functions of RPCRouter
- * @author ben
+ * @author Benjamin Dezile
  */
 public class RPCRouterTest extends TestCase {
 
@@ -198,7 +198,7 @@ public class RPCRouterTest extends TestCase {
 	
 	/**
 	 * Test RPC object
-	 * @author ben
+	 * @author Benjamin Dezile
 	 */
 	protected class TestRPCObject implements RPCObject {
 		
@@ -223,7 +223,7 @@ public class RPCRouterTest extends TestCase {
 	
 	/**
 	 * Test transport
-	 * @author ben
+	 * @author Benjamin Dezile
 	 */
 	protected static class TestTransport implements Transport {
 

@@ -2,7 +2,7 @@ package com.labs.rpc.util;
 
 /**
  * When a remote call throws an exception on the remote side
- * @author ben
+ * @author Benjamin Dezile
  */
 public class RemoteException extends Exception {
 

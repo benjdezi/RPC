@@ -7,7 +7,7 @@ import org.json.JSONObject;
 
 /**
  * Remote call return packet
- * @author ben
+ * @author Benjamin Dezile
  */
 public class RemoteCallReturn extends DataPacket {
 	
