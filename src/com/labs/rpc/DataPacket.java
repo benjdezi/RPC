@@ -289,7 +289,7 @@ public class DataPacket {
 	 * @return {@link DataPacket}
 	 * @throws Exception
 	 */
-	public DataPacket fromStream(InputStream in) throws Exception {
+	public static DataPacket fromStream(InputStream in) throws Exception {
 		byte[] headerBytes = new byte[HEADER_SIZE];
 		int n = 0;
 		while (n < HEADER_SIZE) {
