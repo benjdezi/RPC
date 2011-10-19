@@ -293,7 +293,9 @@ public class DataPacket {
 		byte[] headerBytes = new byte[HEADER_SIZE];
 		int n = 0;
 		while (n < HEADER_SIZE) {
-			in.read(headerBytes, n, HEADER_SIZE - n);
+			if (in.read(headerBytes, n, HEADER_SIZE - n) < 0) {
+				throw new IOException("Connection closed");
+			}
 		}
 		DataPacket dp = new DataPacket();
 		ByteBuffer header = ByteBuffer.wrap(headerBytes);
@@ -304,7 +306,9 @@ public class DataPacket {
 		dp.payload = new byte[l];
 		n = 0;
 		while (n < l) {
-			in.read(dp.payload, n, l - n);
+			if (in.read(dp.payload, n, l - n) < 0) {
+				throw new IOException("Connection closed");
+			}
 		}
 		return dp;
 	}
