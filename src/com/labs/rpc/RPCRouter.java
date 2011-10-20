@@ -8,6 +8,7 @@ import java.util.*;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import com.labs.rpc.util.Call;
+import com.labs.rpc.util.CallBack;
 import com.labs.rpc.util.Queue;
 import com.labs.rpc.util.RPCMethod;
 import com.labs.rpc.util.RPCObject;
@@ -33,13 +34,24 @@ public class RPCRouter {
 	private XmitThread sendLoop;			// Sending thread
 	private CallProcessor callProc;			// Processing thread for incoming calls
 	private CallTimeOuter timouter;			// Call timeouter
-		
+	private CallBack onExitCallback;		// Exit callback
+
 	/**
 	 * Create a new router
 	 * @param obj {@link RPCObject} - Object this router will locally call onto
 	 * @param transport {@link Transport} - Transport to be used
 	 */
 	public RPCRouter(RPCObject obj, Transport transport) {
+		this(obj, transport, null);
+	}
+	
+	/**
+	 * Create a new router
+	 * @param obj {@link RPCObject} - Object this router will locally call onto
+	 * @param transport {@link Transport} - Transport to be used
+	 * @param onExit {@link CallBack} - Method to call when exiting (null if none)
+	 */
+	public RPCRouter(RPCObject obj, Transport transport, CallBack onExit) {
 		killed = new AtomicBoolean(true);
 		recvLoop = new RecvThread(this);
 		sendLoop = new XmitThread(this);
@@ -47,6 +59,7 @@ public class RPCRouter {
 		timouter = new CallTimeOuter(this);
 		transp = transport;
 		rpcObj = obj;
+		onExitCallback = onExit;
 	}
 	
 	/**
@@ -190,17 +203,10 @@ public class RPCRouter {
 	 */
 	public Object getReturnBlocking(long seq) throws IllegalArgumentException, RemoteException, TimeoutException {
 		try {
-//			while (true) {
-//				try {
-//					return getReturn(seq);
-//				} catch (IllegalStateException e) {
-//					/* Not returned yet */
-					Call call;
-					synchronized(outWait) { call = outWait.get(seq); }
-					call.waitForReturn();
-					return getReturn(seq);
-//				}
-//			}
+			Call call;
+			synchronized(outWait) { call = outWait.get(seq); }
+			call.waitForReturn();
+			return getReturn(seq);
 		} catch (InterruptedException e) {
 			return null;
 		}
@@ -268,6 +274,10 @@ public class RPCRouter {
 				} catch (IOException e) {
 					/* Connection error, abort all */
 					router.kill();
+					/* Call onExit callback */
+					if (router.onExitCallback != null) {
+						router.onExitCallback.call();
+					}
 					break;
 				} catch (InterruptedException e) {
 					break;
