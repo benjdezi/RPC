@@ -20,7 +20,8 @@ import com.labs.rpc.util.RemoteException;
  */
 public class RPCRouter {
 
-	protected static final int TIMEOUT = 5;	// Call timeout in seconds
+	protected static final int DEFAULT_TIMEOUT = 5;		// Default timeout for calls (in seconds)
+	protected static int TIMEOUT;
 	
 	private AtomicBoolean killed;			// Whether this router is dead
 	
@@ -66,7 +67,16 @@ public class RPCRouter {
 	 * Start the processing loops and initialize internal states
 	 */
 	public void start() {
+		start(0);
+	}
+	
+	/**
+	 * Start the processing loops and initialize internal states
+	 * @param timeout int - General timeout to use (in seconds)
+	 */
+	public void start(int timeout) {
 		killed.set(false);
+		TIMEOUT = timeout > 0 ? timeout : DEFAULT_TIMEOUT;
 		outCalls = new Queue<Call>();
 		outWait = new HashMap<Long,Call>(0);
 		inCalls = new Queue<Call>();
