@@ -125,6 +125,7 @@ public abstract class BaseTransport implements Transport {
 				sock.close();
 			} catch (IOException e) {}
 		}
+		on.set(false);
 	}
 	
 }
