@@ -80,6 +80,22 @@ public class DataPacket {
 	}
 	
 	/**
+	 * Set the payload bytes
+	 * @param data byte[] - Payload
+	 */
+	public void setPayload(byte[] data) {
+		payload = data;
+	}
+	
+	/**
+	 * Get the payload bytes
+	 * @return byte[]
+	 */
+	public byte[] getPayload() {
+		return payload;
+	}
+	
+	/**
 	 * Get the associated sequence number
 	 * @return long
 	 */
@@ -291,11 +307,12 @@ public class DataPacket {
 	 */
 	public static DataPacket fromStream(InputStream in) throws IOException {
 		byte[] headerBytes = new byte[HEADER_SIZE];
-		int n = 0;
+		int b,n = 0;
 		while (n < HEADER_SIZE) {
-			if (in.read(headerBytes, n, HEADER_SIZE - n) < 0) {
+			if ((b=in.read(headerBytes, n, HEADER_SIZE - n)) < 0) {
 				throw new IOException("Connection closed");
 			}
+			n += b;
 		}
 		DataPacket dp = new DataPacket();
 		ByteBuffer header = ByteBuffer.wrap(headerBytes);
@@ -306,9 +323,10 @@ public class DataPacket {
 		dp.payload = new byte[l];
 		n = 0;
 		while (n < l) {
-			if (in.read(dp.payload, n, l - n) < 0) {
+			if ((b=in.read(dp.payload, n, l - n)) < 0) {
 				throw new IOException("Connection closed");
 			}
+			n += b;
 		}
 		return dp;
 	}
