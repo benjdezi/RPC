@@ -256,8 +256,8 @@ public class DataPacket {
 		ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
 		header.put(type);
 		header.putInt(pl);
-		header.putLong(seq);
 		header.putLong(time);
+		header.putLong(seq);
 		return header.array();
 	}
 	
