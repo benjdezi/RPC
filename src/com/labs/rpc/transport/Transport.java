@@ -1,9 +1,7 @@
-package com.labs.rpc;
+package com.labs.rpc.transport;
 
 import java.io.IOException;
 
-import com.labs.rpc.transport.DataPacket;
-import com.labs.rpc.transport.DataStream;
 
 /**
  * Abstract transport interface
