@@ -5,6 +5,9 @@ import java.util.concurrent.TimeoutException;
 import java.io.IOException;
 import junit.framework.*;
 import org.junit.Test;
+
+import com.labs.rpc.transport.DataPacket;
+import com.labs.rpc.transport.DataStream;
 import com.labs.rpc.util.Queue;
 import com.labs.rpc.util.RPCMethod;
 import com.labs.rpc.util.RPCObject;
@@ -262,6 +265,16 @@ public class RPCRouterTest extends TestCase {
 		@Override
 		public void shutdown() {
 			q.clear();
+		}
+
+		@Override
+		public DataStream read() throws IOException {
+			throw new IOException("DataStream not supported in this context");
+		}
+
+		@Override
+		public void write(DataStream stream) throws IOException {
+			throw new IOException("DataStream not supported in this context");
 		}
 		
 	}

@@ -7,7 +7,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import org.junit.Test;
-import com.labs.rpc.DataPacket;
 import com.labs.rpc.util.AsyncTask;
 import junit.framework.TestCase;
 
