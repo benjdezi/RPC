@@ -125,18 +125,5 @@ public abstract class BaseTransport implements Transport {
 		}
 		on.set(false);
 	}
-
-	@Override
-	public DataStream read() throws IOException {
-		return DataStream.fromStream(sock.getInputStream());
-	}
-
-	@Override
-	public void write(DataStream stream) throws IOException {
-		if (stream == null) {
-			throw new NullPointerException("Invalid packet");
-		}
-		sock.getOutputStream().write(stream.getBytes());
-	}
 	
 }

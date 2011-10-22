@@ -16,6 +16,7 @@ import junit.framework.TestCase;
  */
 public class BaseTransportTest extends TestCase {
 
+	private static final byte TEST_TYPE = (byte)0;
 	private static final String TEST_DATA = "1234567890";
 	private static final String TEST_DATA2 = "abcdefghijklmnopqrstuvwxyz";
 	private static final int TEST_PORT = 11113;
@@ -39,8 +40,7 @@ public class BaseTransportTest extends TestCase {
 					System.out.println("Got connection from " + clientSock.getLocalAddress() + ":" + clientSock.getPort());
 					OutputStream out = clientSock.getOutputStream();
 					
-					DataPacket dp = new DataPacket((byte)0);
-					dp.setPayload(TEST_DATA2.getBytes());
+					DataPacket dp = new DataPacket(TEST_TYPE, TEST_DATA2.getBytes());
 					out.write(dp.getBytes());
 					System.out.println("Sent data to client");
 					
@@ -82,8 +82,7 @@ public class BaseTransportTest extends TestCase {
 		
 	@Test
 	public void testSend() {
-		DataPacket dp = new DataPacket((byte)0);
-		dp.setPayload(TEST_DATA.getBytes());
+		DataPacket dp = new DataPacket(TEST_TYPE, TEST_DATA.getBytes());
 		try {
 			transp.send(dp);
 			System.out.println("Sent data to server");
@@ -104,7 +103,7 @@ public class BaseTransportTest extends TestCase {
 			fail("Failed to receive data: " + e.getMessage());
 		}
 	}
-	
+		
 	@Test 
 	public void testShutdown() {
 		assertTrue("Transport failed to start", transp.on.get());
