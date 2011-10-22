@@ -5,6 +5,8 @@ import java.util.Arrays;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.labs.rpc.transport.DataPacket;
+
 /**
  * Remote call return packet
  * @author Benjamin Dezile
@@ -57,13 +59,13 @@ public class RemoteCallReturn extends DataPacket {
 	 * @throws Exception 
 	 */
 	public static RemoteCallReturn fromPacket(DataPacket dp) throws Exception {
-		if (dp.type != TYPE) {
-			throw new IllegalArgumentException("Wrong type of packet: " + dp.type);
+		if (dp.getType() != TYPE) {
+			throw new IllegalArgumentException("Wrong type of packet: " + dp.getType());
 		}
 		RemoteCallReturn rcr = new RemoteCallReturn();
-		rcr.seq = dp.seq;
-		rcr.time = dp.time;
-		rcr.val = unpackObject(new String(dp.payload));
+		rcr.seq = dp.getSeq();
+		rcr.time = dp.getTime();
+		rcr.val = unpackObject(new String(dp.getPayload()));
 		return rcr;
 	}
 	

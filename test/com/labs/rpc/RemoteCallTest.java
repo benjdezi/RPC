@@ -5,6 +5,7 @@ import java.util.*;
 import junit.framework.*;
 import org.junit.Test;
 
+import com.labs.rpc.transport.DataPacket;
 import com.labs.rpc.util.RemoteException;
 
 /**

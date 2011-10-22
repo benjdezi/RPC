@@ -3,6 +3,8 @@ package com.labs.rpc;
 import java.util.*;
 import org.json.*;
 
+import com.labs.rpc.transport.DataPacket;
+
 /**
  * Remote call packet
  * @author Benjamin Dezile
@@ -74,16 +76,16 @@ public class RemoteCall extends DataPacket {
 	 * @throws Exception 
 	 */
 	public static RemoteCall fromPacket(DataPacket dp) throws Exception {
-		if (dp.type != TYPE) {
-			throw new IllegalArgumentException("Wrong type of packet: " + dp.type);
+		if (dp.getType() != TYPE) {
+			throw new IllegalArgumentException("Wrong type of packet: " + dp.getType());
 		}
 		RemoteCall rc = new RemoteCall();
-		String[] parts = new String(dp.payload).split(SEP);
+		String[] parts = new String(dp.getPayload()).split(SEP);
 		if (parts.length == 0) {
 			throw new IllegalArgumentException("Invalid packet (no valid call data)");
 		}
-		rc.seq = dp.seq;
-		rc.time = dp.time;
+		rc.seq = dp.getSeq();
+		rc.time = dp.getTime();
 		rc.meth = parts[0];
 		rc.args = new Object[parts.length-1];
 		for (int i=1;i<parts.length;i++) {
