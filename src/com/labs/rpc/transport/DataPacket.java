@@ -331,9 +331,7 @@ public class DataPacket {
 		return dp;
 	}
 
-	/**
-	 * Assert that the given object is the same as this packet
-	 */
+	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
 			return true;
@@ -352,6 +350,21 @@ public class DataPacket {
 			return false;
 		}
 		return true;
+	}
+	
+	@Override
+	public String toString() {
+		StringBuffer buf = new StringBuffer();
+		buf.append("DataPacket: type=");
+		buf.append(type);
+		buf.append(", seq=");
+		buf.append(seq);
+		buf.append(", time=");
+		buf.append(time);
+		buf.append(", payload: ");
+		buf.append(payload != null ? payload.length : 0);
+		buf.append(" bytes");
+		return buf.toString();
 	}
 	
 }
