@@ -1,4 +1,4 @@
-package com.labs.rpc;
+package com.labs.rpc.transport;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,6 +49,16 @@ public class DataPacket {
 	 */
 	public DataPacket(byte t) {
 		this(t, getNextSeq());
+	}
+
+	/**
+	 * Create a new data packet
+	 * @param t byte - Packet type
+	 * @param data byte[] - Payload bytes
+	 */
+	public DataPacket(byte t, byte[] data) {
+		this(t, getNextSeq());
+		payload = data;
 	}
 	
 	/**
@@ -292,8 +302,8 @@ public class DataPacket {
 		ByteBuffer buf = ByteBuffer.wrap(bytes);
 		DataPacket dp = new DataPacket();
 		dp.type = buf.get(0);
-		dp.seq = buf.getLong(5);
-		dp.time = buf.getLong(13);
+		dp.time = buf.getLong(5);
+		dp.seq = buf.getLong(13);
 		int l = buf.getInt(1);
 		dp.payload = Arrays.copyOfRange(bytes, HEADER_SIZE, HEADER_SIZE + l);
 		return dp;
@@ -331,9 +341,7 @@ public class DataPacket {
 		return dp;
 	}
 
-	/**
-	 * Assert that the given object is the same as this packet
-	 */
+	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
 			return true;
@@ -352,6 +360,21 @@ public class DataPacket {
 			return false;
 		}
 		return true;
+	}
+	
+	@Override
+	public String toString() {
+		StringBuffer buf = new StringBuffer();
+		buf.append("DataPacket: type=");
+		buf.append(type);
+		buf.append(", seq=");
+		buf.append(seq);
+		buf.append(", time=");
+		buf.append(time);
+		buf.append(", payload: ");
+		buf.append(payload != null ? payload.length : 0);
+		buf.append(" bytes");
+		return buf.toString();
 	}
 	
 }
