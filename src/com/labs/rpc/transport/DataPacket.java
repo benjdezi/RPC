@@ -1,4 +1,4 @@
-package com.labs.rpc;
+package com.labs.rpc.transport;
 
 import java.io.IOException;
 import java.io.InputStream;
