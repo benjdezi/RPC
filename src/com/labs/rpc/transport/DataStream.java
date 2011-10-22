@@ -5,8 +5,6 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-// TODO: Write unit test for DataStream
-
 /**
  * Implements a stream of bytes
  * @author Benjamin Dezile
@@ -15,7 +13,6 @@ public class DataStream {
 
 	private static final int HEADER_SIZE = 4;
 	
-	protected int length;		// Length of the data being stream
 	protected byte[] data;		// Stream data
 	
 	/**
@@ -31,7 +28,7 @@ public class DataStream {
 	 * @return int
 	 */
 	public int getLength() {
-		return length;
+		return data != null ? data.length : 0;
 	}
 	
 	/**
@@ -48,8 +45,10 @@ public class DataStream {
 	 */
 	public byte[] getBytes() {
 		ByteBuffer buf = ByteBuffer.allocate(HEADER_SIZE + data.length);
-		buf.putInt(length);
-		buf.put(data);
+		buf.putInt(getLength());
+		if (data != null) {
+			buf.put(data);
+		}
 		return buf.array();
 	}
 	
@@ -60,13 +59,20 @@ public class DataStream {
 	 */
 	public static DataStream fromBytes(byte[] bytes) {
 		ByteBuffer buf = ByteBuffer.wrap(bytes);
-		int length = buf.getInt(0);
-		int diff = bytes.length - (HEADER_SIZE + length);
-		if (diff > 0) {
-			throw new IllegalArgumentException("Size does not match: " + diff + " bytes missing");
+		if (bytes.length < HEADER_SIZE) {
+			throw new IllegalArgumentException("Incomplete data");
 		}
-		byte[] buffer = new byte[length];
-		buf.get(buffer, HEADER_SIZE, length);
+		int length = buf.getInt(0);
+		byte[] buffer;
+		if (length > 0) {
+			int diff = bytes.length - (HEADER_SIZE + length);
+			if (diff > 0) {
+				throw new IllegalArgumentException("Size does not match: " + diff + " bytes missing");
+			}
+			buffer = Arrays.copyOfRange(bytes, HEADER_SIZE, HEADER_SIZE + length);
+		} else {
+			buffer = new byte[length];
+		}
 		return new DataStream(buffer);
 	}
 	
@@ -89,7 +95,7 @@ public class DataStream {
 		n = 0;
 		byte[] data = new byte[length];
 		while (n < length) {
-			if ((b=in.read(data, n, HEADER_SIZE - n)) < 0) {
+			if ((b=in.read(data, n, length - n)) < 0) {
 				throw new IOException("Connection closed");
 			}
 			n += b;
@@ -103,9 +109,6 @@ public class DataStream {
 			return true;
 		}
 		DataStream ds = (DataStream)o;
-		if (length != ds.length) {
-			return false;
-		}
 		if (!Arrays.equals(data, ds.data)) {
 			return false;
 		}
@@ -114,7 +117,7 @@ public class DataStream {
 	
 	@Override
 	public String toString() {
-		return "DataStream: " + length + " bytes";
+		return "DataStream: " + (data != null ? data.length : 0) + " bytes";
 	}
 	
 }
