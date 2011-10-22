@@ -5,7 +5,6 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import com.labs.rpc.DataPacket;
 import com.labs.rpc.Transport;
 
 /**
@@ -126,6 +125,19 @@ public abstract class BaseTransport implements Transport {
 			} catch (IOException e) {}
 		}
 		on.set(false);
+	}
+
+	@Override
+	public DataStream read() throws IOException {
+		return DataStream.fromStream(sock.getInputStream());
+	}
+
+	@Override
+	public void write(DataStream stream) throws IOException {
+		if (stream == null) {
+			throw new NullPointerException("Invalid packet");
+		}
+		sock.getOutputStream().write(stream.getBytes());
 	}
 	
 }
