@@ -19,6 +19,17 @@ public class DataStreamTest extends TestCase {
 		DataStream ds2 = DataStream.fromBytes(ds1.getBytes());
 		assertNotNull(ds2);
 		assertTrue(ds1.equals(ds2));
+		
+		ds1 = new DataStream(new byte[0]);
+		ds2 = DataStream.fromBytes(ds1.getBytes());
+		assertNotNull(ds2);
+		assertTrue(ds1.equals(ds2));
+		
+		try {
+			new DataStream(null);
+			fail("This should have thrown an exception");
+		} catch (NullPointerException e) {}
+		
 	}
 	
 	@Test

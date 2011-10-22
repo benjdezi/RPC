@@ -20,7 +20,9 @@ public class DataStream {
 	 * @param bytes byte[] - Stream data
 	 */
 	public DataStream(byte[] bytes) {
-		data = bytes;
+		if ((data = bytes) == null) {
+			throw new NullPointerException("Invalid payload");
+		}
 	}
 	
 	/**
@@ -44,7 +46,7 @@ public class DataStream {
 	 * @return byte[]
 	 */
 	public byte[] getBytes() {
-		ByteBuffer buf = ByteBuffer.allocate(HEADER_SIZE + data.length);
+		ByteBuffer buf = ByteBuffer.allocate(HEADER_SIZE + getLength());
 		buf.putInt(getLength());
 		if (data != null) {
 			buf.put(data);
@@ -117,7 +119,7 @@ public class DataStream {
 	
 	@Override
 	public String toString() {
-		return "DataStream: " + (data != null ? data.length : 0) + " bytes";
+		return "DataStream: " + getLength() + " bytes";
 	}
 	
 }
