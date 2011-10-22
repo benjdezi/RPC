@@ -3,6 +3,7 @@ package com.labs.rpc.transport;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 // TODO: Write unit test for DataStream
 
@@ -94,6 +95,26 @@ public class DataStream {
 			n += b;
 		}
 		return new DataStream(data);
+	}
+	
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		DataStream ds = (DataStream)o;
+		if (length != ds.length) {
+			return false;
+		}
+		if (!Arrays.equals(data, ds.data)) {
+			return false;
+		}
+		return true;
+	}
+	
+	@Override
+	public String toString() {
+		return "DataStream: " + length + " bytes";
 	}
 	
 }
