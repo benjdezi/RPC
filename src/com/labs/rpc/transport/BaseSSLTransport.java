@@ -1,9 +1,13 @@
 package com.labs.rpc.transport;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.security.KeyStore;
+
 import javax.net.ssl.*;
 
 /**
@@ -12,9 +16,7 @@ import javax.net.ssl.*;
  */
 public abstract class BaseSSLTransport extends BaseTransport {
 
-	private static final SSLSocketFactory sslSocketFactory = (SSLSocketFactory)SSLSocketFactory.getDefault();
-	
-	private SSLSocket sock;
+	private static SSLSocketFactory sslSocketFactory;	
 	
 	/**
 	 * Create a new transport instance
@@ -41,18 +43,54 @@ public abstract class BaseSSLTransport extends BaseTransport {
 		super(sock);
 	}
 	
+	/**
+	 * Return the appropriate client socket factory for the given key store
+	 * @return {@link SSLSocketFactory}
+	 * @throws Exception
+	 */
+	protected SSLSocketFactory _getSSLSocketFactory(String ksPath, String pwd) throws Exception {
+		SSLContext ctx = SSLContext.getInstance("TLS");
+		TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+		KeyStore ks = KeyStore.getInstance("JKS");
+		char[] passphrase = pwd.toCharArray();
+		
+		ks.load(new FileInputStream(new File(ksPath)), passphrase);
+		tmf.init(ks);
+		ctx.init(null, tmf.getTrustManagers(), null);
+		
+		return ctx.getSocketFactory();
+	}
+	
+	/**
+	 * Get the appropriate socket factory
+	 * @return {@link SSLSocketFactory}
+	 * @throws Exception
+	 */
+	protected abstract SSLSocketFactory getSSLSocketFactory() throws Exception;
+	
 	@Override
 	protected boolean connect() {
 		int attempts = 0;
+		/* Get socket factory */
+		try {
+			if (sslSocketFactory == null) {
+				sslSocketFactory = getSSLSocketFactory();
+			}
+		} catch (Exception e) {
+			System.err.println("Failed to get ssl socket factory");
+			e.printStackTrace();
+			return false;
+		}
 		while (true) {
 			try {
 				/* Trying to connect */
 				attempts++;
 				if (sock != null && sock instanceof Socket) {
-					sslSocketFactory.createSocket(sock, address.getHostName(), port, true);
+					sock = sslSocketFactory.createSocket(sock, address.getHostName(), port, true);
 				} else {
 					sock = (SSLSocket)sslSocketFactory.createSocket(address, port);
 				}
+				((SSLSocket)sock).startHandshake();
 				afterConnect(sock);
 				on.set(true);
 				return true;
