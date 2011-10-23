@@ -311,6 +311,11 @@ public class RPCRouterTest extends TestCase {
 		public void shutdown() {
 			q.clear();
 		}
+
+		@Override
+		public boolean recover() {
+			throw new IllegalStateException("Not applicable in this context");
+		}
 		
 	}
 	

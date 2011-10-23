@@ -90,6 +90,14 @@ public class RPCRouter {
 	}
 	
 	/**
+	 * Get the associated transport
+	 * @return {@link Transport}
+	 */
+	public Transport getTransport() {
+		return transp;
+	}
+	
+	/**
 	 * Register a new target
 	 * @param name {@link String} - Associated target name
 	 * @param obj {@link RPCObject} - Target object

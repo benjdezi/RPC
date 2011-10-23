@@ -29,4 +29,9 @@ public interface Transport {
 	 */
 	public void shutdown();
 	
+	/**
+	 * Recover connection
+	 */
+	public boolean recover();
+	
 }
