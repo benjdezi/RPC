@@ -170,12 +170,10 @@ public class RPCRouter {
 	 * Kill all processing loop
 	 */
 	private void kill() {
-		synchronized(killed) {
-			if (killed.get()) {
-				return;
-			}
-			killed.set(true);
+		if (killed.get()) {
+			return;
 		}
+		killed.set(true);
 		callProc.interrupt();
 		recvLoop.interrupt();
 		sendLoop.interrupt();
@@ -384,7 +382,7 @@ public class RPCRouter {
 		
 		public void run() {
 			RemoteCall rc;
-			Call call;
+			Call call = null;
 			while (on) {
 				try {
 					if ((call = router.outCalls.poll()) != null) {
@@ -395,6 +393,10 @@ public class RPCRouter {
 						router.transp.send(rc);
 					}
 				} catch (IOException e) {
+					/* Put the call back into queue to preserve data integrity */
+					if (call != null) {
+						router.outCalls.putBack(call);
+					}
 					/* Connection error, abort all */
 					router.kill();
 					break;
