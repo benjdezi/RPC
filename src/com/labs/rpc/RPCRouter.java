@@ -4,10 +4,10 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import com.labs.rpc.transport.DataPacket;
 import com.labs.rpc.transport.Transport;
 import com.labs.rpc.util.Call;
@@ -23,6 +23,7 @@ import com.labs.rpc.util.RemoteException;
  */
 public class RPCRouter {
 
+	protected static final String VOID = "void";	// Return value for void methods
 	protected static final int DEFAULT_TIMEOUT = 5;	// Default timeout for calls (in seconds)
 	protected static int TIMEOUT;					// Timeout value for calls
 	
@@ -498,6 +499,10 @@ public class RPCRouter {
 			Object ret = null;
 			try {
 				ret = meth.invoke(obj,args);
+				Type retType = meth.getReturnType();
+				if ("void".equals(retType.toString())) {
+					return VOID;
+				}
 			} catch (IllegalArgumentException e) {
 				ret = new RemoteException(e);
 				e.printStackTrace();
@@ -515,7 +520,8 @@ public class RPCRouter {
 	
 	
 	/**
-	 * Monitor pending calls for timeouts
+	 * Flag old calls as timed out and remove unclaimed calls
+	 * that returned VOID
 	 * @author Benjamin Dezile
 	 */
 	private static class CallTimeOuter extends Thread {
@@ -548,7 +554,19 @@ public class RPCRouter {
 						synchronized(router.outWait) {	
 							call = router.outWait.get(seq); 
 						}
-						if (call != null && call.getStartTime() + RPCRouter.TIMEOUT * 1000 < System.currentTimeMillis()) {
+						if (call == null) {
+							continue;
+						}
+						if (VOID.equals(call.getReturnValue())) {
+							/* Void-return call */
+							if (call.getStartTime() + 2 * RPCRouter.TIMEOUT * 1000 < System.currentTimeMillis()) {
+								synchronized(router.outWait) {
+									/* Remove since it has not been claimed and is useless anyway */
+									router.outWait.remove(seq);
+								}
+							}
+						} else if (call.getStartTime() + RPCRouter.TIMEOUT * 1000 < System.currentTimeMillis()) {
+							/* Timed out non-void call */
 							call.setTimedOut();
 						}
 					}
