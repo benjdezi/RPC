@@ -33,8 +33,7 @@ public abstract class BaseTransport implements Transport {
 
 	/**
 	 * Create a new transport instance
-	 * @param sock {@link Socket} - Socket to use
-	 * @throws IOException 
+	 * @param sock {@link Socket} - Socket to use 
 	 */
 	public BaseTransport(Socket sock) {
 		this.sock = sock;
@@ -44,10 +43,21 @@ public abstract class BaseTransport implements Transport {
 	}
 	
 	/**
+	 * Create an empty transport instance.<br>
+	 * <i>Only to be used in subclasses</i>
+	 */
+	protected BaseTransport() {
+		this.sock = null;
+		this.address = null;
+		this.port = -1;
+		this.on = null;
+	}
+	
+	/**
 	 * Establish connection
 	 * @return boolean True upon sucess, false otherwise
 	 */
-	private boolean connect() {
+	protected boolean connect() {
 		int attempts = 0;
 		while (true) {
 			try {
