@@ -2,6 +2,7 @@ package com.labs.rpc.transport;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.Socket;
 import java.net.UnknownHostException;
 import javax.net.ssl.*;
 
@@ -26,9 +27,17 @@ public abstract class BaseSSLTransport extends BaseTransport {
 
 	/**
 	 * Create a new transport instance
-	 * @param sock {@link Socket} - Socket to use 
+	 * @param sock {@link SSLSocket} - Socket to use 
 	 */
 	public BaseSSLTransport(SSLSocket sock) {
+		super(sock);
+	}
+	
+	/**
+	 * Create a new transport instance
+	 * @param sock {@link Socket} - Socket to wrap around 
+	 */
+	public BaseSSLTransport(Socket sock) {
 		super(sock);
 	}
 	
@@ -39,7 +48,11 @@ public abstract class BaseSSLTransport extends BaseTransport {
 			try {
 				/* Trying to connect */
 				attempts++;
-				sock = (SSLSocket)sslSocketFactory.createSocket(address, port);
+				if (sock != null && sock instanceof Socket) {
+					sslSocketFactory.createSocket(sock, address.getHostName(), port, true);
+				} else {
+					sock = (SSLSocket)sslSocketFactory.createSocket(address, port);
+				}
 				afterConnect(sock);
 				on.set(true);
 				return true;
