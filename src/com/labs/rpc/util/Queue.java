@@ -96,6 +96,19 @@ public class Queue<T> {
 	}
 	
 	/**
+	 * Put an item back at the top of the queue
+	 * @param o T - Item to put back
+	 */
+	public void putBack(T o) {
+		synchronized(items) {
+			List<T> newItems = new ArrayList<T>(0);
+			newItems.add(o);
+			newItems.addAll(items);
+			items = newItems;
+		}
+	}
+	
+	/**
 	 * Put an element into the list
 	 * @param o T - Element to put in the queue
 	 * @return boolean True upon success
