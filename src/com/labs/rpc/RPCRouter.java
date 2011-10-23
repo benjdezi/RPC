@@ -23,13 +23,13 @@ import com.labs.rpc.util.RemoteException;
  */
 public class RPCRouter {
 
-	protected static final int DEFAULT_TIMEOUT = 5;		// Default timeout for calls (in seconds)
-	protected static int TIMEOUT;
+	protected static final int DEFAULT_TIMEOUT = 5;	// Default timeout for calls (in seconds)
+	protected static int TIMEOUT;					// Timeout value for calls
 	
 	private AtomicBoolean killed;			// Whether this router is dead
 	
 	private Transport transp;				// Object transport
-	private RPCObject rpcObj;				// RPC object to apply incoming call onto
+	private Map<String,RPCObject> rpcObjs;	// RPC object map: RPC Name -> Object
 	private Queue<Call> outCalls;			// Outgoing calls waiting to be sent
 	private Map<Long,Call> outWait;			// Outgoing calls waiting for returns
 	private Queue<Call> inCalls;			// Incoming calls waiting for processing
@@ -42,28 +42,76 @@ public class RPCRouter {
 
 	/**
 	 * Create a new router
-	 * @param obj {@link RPCObject} - Object this router will locally call onto
+	 * @param obj {@link RPCObject} - Object this router will locally apply calls to
 	 * @param transport {@link Transport} - Transport to be used
 	 */
 	public RPCRouter(RPCObject obj, Transport transport) {
-		this(obj, transport, null);
+		this(new RPCObject[] {obj}, transport, null);
 	}
 	
 	/**
 	 * Create a new router
-	 * @param obj {@link RPCObject} - Object this router will locally call onto
+	 * @param objs {@link RPCObject}[] - Objects this router will locally apply calls to
+	 * @param transport {@link Transport} - Transport to be used
+	 */
+	public RPCRouter(RPCObject[] objs, Transport transport) {
+		this(objs, transport, null);
+	}
+
+	/**
+	 * Create a new router
+	 * @param obj {@link RPCObject} - Object this router will locally apply calls to
 	 * @param transport {@link Transport} - Transport to be used
 	 * @param onExit {@link CallBack} - Method to call when exiting (null if none)
 	 */
 	public RPCRouter(RPCObject obj, Transport transport, CallBack onExit) {
+		this(new RPCObject[]{obj}, transport, onExit);
+	}
+	
+	/**
+	 * Create a new router
+	 * @param objs {@link RPCObject}[] - Objects this router will locally apply calls to
+	 * @param transport {@link Transport} - Transport to be used
+	 * @param onExit {@link CallBack} - Method to call when exiting (null if none)
+	 */
+	public RPCRouter(RPCObject[] objs, Transport transport, CallBack onExit) {
 		killed = new AtomicBoolean(true);
 		recvLoop = new RecvThread(this);
 		sendLoop = new XmitThread(this);
 		callProc = new CallProcessor(this);
 		timouter = new CallTimeOuter(this);
 		transp = transport;
-		rpcObj = obj;
+		rpcObjs = new HashMap<String,RPCObject>(objs.length);
+		for (RPCObject obj:objs) {
+			rpcObjs.put(obj.getRPCName(), obj);
+		}
 		onExitCallback = onExit;
+	}
+	
+	/**
+	 * Register a new target
+	 * @param name {@link String} - Associated target name
+	 * @param obj {@link RPCObject} - Target object
+	 */
+	public void registerTargetObject(String name, RPCObject obj) {
+		rpcObjs.put(name, obj);
+	}
+	
+	/**
+	 * Remove a given target 
+	 * @param name {@link String} - Target name
+	 */
+	public void unregisterTargetObject(String name) {
+		rpcObjs.remove(name);
+	}
+	
+	/**
+	 * Return a given target object
+	 * @param name {@link String} - Target name
+	 * @return {@link RPCObject} Null if no match
+	 */
+	protected RPCObject getTargetObject(String name) {
+		return rpcObjs.get(name);
 	}
 	
 	/**
@@ -402,7 +450,11 @@ public class RPCRouter {
 		
 		private Object makeCall(RemoteCall rc) throws Exception {
 			Method method = null;
-			Class<?> clazz = router.rpcObj.getClass();
+			RPCObject target = router.getTargetObject(rc.getTarget());
+			if (target == null) {
+				throw new NullPointerException("Target not found: " + rc.getTarget());
+			}
+			Class<?> clazz = target.getClass();
 			for (Method meth:clazz.getMethods()) {
 				if (rc.getMethod().equals(meth.getName())) {
 					method = meth;
@@ -411,7 +463,7 @@ public class RPCRouter {
 			}
 			if (method != null) {
 				if (isRPCMethod(method)) {
-					return callMethod(router.rpcObj, method, rc.getArguments());
+					return callMethod(target, method, rc.getArguments());
 				}
 				throw new Exception("Not a RPC method");
 			}

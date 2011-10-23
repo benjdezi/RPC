@@ -15,24 +15,40 @@ import com.labs.rpc.util.RemoteException;
  */
 public class RemoteCallReturnTest extends TestCase {
 
+	private static final String TEST_TARGET = "testObject";
+	private static final String TEST_METHOD = "testMethod";
+	
 	@Test
-	public void testFromBytes() {
-		RemoteCall rc = new RemoteCall("methodName");
+	public void testFromPacket() {
+		RemoteCall rc = new RemoteCall(TEST_TARGET, TEST_METHOD);
 		assertEquals(rc.getSeq(), 1);
 		Object[] vals = new Object[]{2, 4.5, true, null, new Object[]{"1",1,false}, new JSONObject(), new JSONArray(), new ArrayList<String>(0), new RemoteException("test")};
+		RemoteCallReturn rcr1 = null, rcr2 = null;
 		for (Object val:vals) {
 			try {
-				RemoteCallReturn rcr1 = new RemoteCallReturn(rc, val);
+				rcr1 = new RemoteCallReturn(rc, val);
 				assertEquals(rcr1.getSeq(), rc.getSeq());
 				DataPacket dp = RemoteCall.fromBytes(rcr1.getBytes());
-				RemoteCallReturn rcr2 = RemoteCallReturn.fromPacket(dp);
-				assertNotNull(rcr2);
-				assertEquals(rcr2.getSeq(), rc.getSeq());
-				assertTrue(rcr1.equals(rcr2));
+				rcr2 = RemoteCallReturn.fromPacket(dp);
 			} catch (Exception e) {
 				fail("There should not have been any exception: " + e.getMessage());
 			}
+			assertNotNull(rcr2);
+			assertEquals(rcr2.getSeq(), rc.getSeq());
+			assertTrue(rcr1.equals(rcr2));
 		}
+	}
+	
+	@Test
+	public void testEquals() {
+		RemoteCall rc = new RemoteCall(TEST_TARGET, TEST_METHOD);
+		RemoteCallReturn rcr0 = new RemoteCallReturn(null, null);
+		RemoteCallReturn rcr1 = new RemoteCallReturn(rc, "0");
+		RemoteCallReturn rcr2 = new RemoteCallReturn(rc, "0");
+		assertTrue(rcr0.equals(rcr0));
+		assertTrue(rcr1.equals(rcr1));
+		assertTrue(rcr1.equals(rcr2));
+		assertFalse(rcr1.equals(rcr0));
 	}
 	
 }

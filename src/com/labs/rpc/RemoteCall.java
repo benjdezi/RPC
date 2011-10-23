@@ -11,11 +11,12 @@ import com.labs.rpc.transport.DataPacket;
  */
 public class RemoteCall extends DataPacket {
 	
-	public static final byte TYPE = 0;								// Packet type
-	protected static final String SEP = "::";						// Separator
+	public static final byte TYPE = 0;			// Packet type
+	protected static final String SEP = "::";	// Separator
 	
-	private String meth;											// Method being called (package.class.method)
-	private Object[] args;											// Method argument
+	private String target;						// Target object
+	private String meth;						// Name of the method to call on the target
+	private Object[] args;						// Call arguments
 	
 	/**
 	 * Create a new data packet
@@ -28,13 +29,23 @@ public class RemoteCall extends DataPacket {
 	
 	/**
 	 * Create a new data packet
+	 * @param obj {@link String} - Target object
 	 * @param method {@link String} - Method to call
 	 * @param params {@link Object}... - Call parameters
 	 */
-	public RemoteCall(String method, Object... params) {
+	public RemoteCall(String obj, String method, Object... params) {
 		super(TYPE);
+		target = obj;
 		meth = method;
 		args = params;
+	}
+	
+	/**
+	 * Return the name of the target object
+	 * @return {@link String}
+	 */
+	public String getTarget() {
+		return target;
 	}
 	
 	/**
@@ -59,6 +70,8 @@ public class RemoteCall extends DataPacket {
 	 */
 	public byte[] getBytes() {
 		StringBuffer buf = new StringBuffer();
+		buf.append(target);
+		buf.append(SEP);
 		buf.append(meth);
 		for (Object arg:args) {
 			buf.append(SEP);
@@ -86,10 +99,11 @@ public class RemoteCall extends DataPacket {
 		}
 		rc.seq = dp.getSeq();
 		rc.time = dp.getTime();
-		rc.meth = parts[0];
-		rc.args = new Object[parts.length-1];
-		for (int i=1;i<parts.length;i++) {
-			rc.args[i-1] = unpackObject(parts[i]);
+		rc.target = parts[0];
+		rc.meth = parts[1];
+		rc.args = new Object[parts.length-2];
+		for (int i=2;i<parts.length;i++) {
+			rc.args[i-2] = unpackObject(parts[i]);
 		}
 		return rc;
 	}
@@ -103,10 +117,13 @@ public class RemoteCall extends DataPacket {
 			return false;
 		}
 		RemoteCall rc = (RemoteCall)o;
-		if ((meth != null && rc.meth == null) || (meth == null && rc.meth != null) || (!meth.equals(rc.meth))) {
+		if (target != rc.target && ((target != null && rc.target == null) || (target == null && rc.target != null) || (!target.equals(rc.target)))) {
 			return false;
 		}
-		if ((args == null && rc.args != null) || (args != null && rc.args == null) || (args.length != rc.args.length)) {
+		if (meth != rc.meth && ((meth != null && rc.meth == null) || (meth == null && rc.meth != null) || (!meth.equals(rc.meth)))) {
+			return false;
+		}
+		if (args != rc.args && ((args == null && rc.args != null) || (args != null && rc.args == null) || (args.length != rc.args.length))) {
 			return false;
 		}
 		Object arg1, arg2;
@@ -143,6 +160,8 @@ public class RemoteCall extends DataPacket {
 		buf.append("RemoteCall #");
 		buf.append(seq);
 		buf.append(": ");
+		buf.append(target);
+		buf.append(" -> ");
 		buf.append(meth);
 		buf.append("(");
 		for (Object arg:args) {

@@ -15,23 +15,41 @@ import com.labs.rpc.util.RemoteException;
  */
 public class RemoteCallTest extends TestCase {
 
-	@Test
-	public void testFromBytes() {
-		String meth = "methodName";
-		Object[] params = new Object[] {2, true, null, 1.4, new String[]{"1","ds"}, new ArrayList<String>(0), new JSONObject(), new JSONArray(), new RemoteException("test message")};
+	private static final String TEST_TARGET = "testObject";
+	private static final String TEST_METHOD = "testMethod";
+	private static final Object[] TEST_ARGS = new Object[] {2, true, null, 1.4, new String[]{"1","ds"}, new ArrayList<String>(0), new JSONObject(), new JSONArray(), new RemoteException("test message")};
+	
+	@Test 
+	public void testFail() {
 		try {
-			RemoteCall rc1 = new RemoteCall(meth, params);
+			new RemoteCall(TEST_TARGET, TEST_METHOD, new Object[] {new Object()}).getBytes();
+			fail("This should have thrown an exception (unsupported type)");
+		} catch (IllegalArgumentException e) {}
+	}
+	
+	@Test
+	public void testFromPacket() {
+		RemoteCall rc1 = null, rc2 = null;
+		try {
+			rc1 = new RemoteCall(TEST_TARGET, TEST_METHOD, TEST_ARGS);
 			DataPacket dp = RemoteCall.fromBytes(rc1.getBytes());
-			RemoteCall rc2 = RemoteCall.fromPacket(dp);
-			assertNotNull(rc2);
-			assertTrue(rc1.equals(rc2));
+			rc2 = RemoteCall.fromPacket(dp);
 		} catch (Exception e) {
+			e.printStackTrace();
 			fail("There should not have been any exception: " + e.getMessage());
 		}
-		try {
-			new RemoteCall(meth, new Object[] {new Object()}).getBytes();
-			fail("This should have thrown an exception");
-		} catch (IllegalArgumentException e) {}
+		assertNotNull(rc2);
+		assertTrue(rc1.equals(rc2));
+	}
+	
+	@Test
+	public void testEquals() {
+		RemoteCall rc0 = new RemoteCall(null, null);
+		RemoteCall rc1 = new RemoteCall(TEST_TARGET, TEST_METHOD);
+		assertTrue(rc1.equals(rc1));
+		assertTrue(rc0.equals(rc0));
+		assertFalse(rc1.equals(new RemoteCall(TEST_TARGET, TEST_METHOD)));
+		assertFalse(rc1.equals(rc0));
 	}
 	
 }
