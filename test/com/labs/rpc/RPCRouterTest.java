@@ -22,6 +22,7 @@ public class RPCRouterTest extends TestCase {
 	private static final Object[] callArgs = new Object[]{1, true, null, 3.56, 6L, new String[]{"1","4fk"}, new ArrayList<String>(0)};
 	private static final int N_TEST = 100; 
 	private static final String TEST_TARGET = "testRPCObj";
+	private static final String TEST_METHOD = "testMethod";
 	
 	public void setUp() {
 		RPCObject obj = new TestRPCObject();
@@ -42,7 +43,7 @@ public class RPCRouterTest extends TestCase {
 		/* Many sequential calls */
 		for (int i=0;i<N_TEST;i++) {
 			t = System.currentTimeMillis();
-			rc = new RemoteCall(TEST_TARGET, "testMethod", true);
+			rc = new RemoteCall(TEST_TARGET, TEST_METHOD, true);
 			router.push(rc);
 			try {
 				assertTrue((Boolean)router.getReturnBlocking(rc));
@@ -63,7 +64,7 @@ public class RPCRouterTest extends TestCase {
 		Set<Long> seqNums = new HashSet<Long>(N_TEST);
 		for (int i=0;i<N_TEST;i++) {
 			t = System.currentTimeMillis();
-			rc = new RemoteCall(TEST_TARGET, "testMethod", true);
+			rc = new RemoteCall(TEST_TARGET, TEST_METHOD, true);
 			router.push(rc);
 			dt = System.currentTimeMillis() - t;
 			System.out.println("Made perf test call #" + rc.getSeq() + " in " + dt + " ms");
@@ -95,7 +96,7 @@ public class RPCRouterTest extends TestCase {
 	public void testOneCallBlocking() throws InterruptedException {
 		System.out.println("\nTEST ONE CALL BLOCKING");
 		router.start();
-		RemoteCall rc = new RemoteCall(TEST_TARGET, "testMethod", true);
+		RemoteCall rc = new RemoteCall(TEST_TARGET, TEST_METHOD, true);
 		router.push(rc);
 		try {
 			router.getReturnBlocking(rc);
@@ -108,7 +109,7 @@ public class RPCRouterTest extends TestCase {
 	public void testOneCallTimeout() throws InterruptedException {
 		System.out.println("\nTEST ONE CALL TIMEOUT");
 		router.start();
-		RemoteCall rc = new RemoteCall(TEST_TARGET, "testMethod", "timeout");
+		RemoteCall rc = new RemoteCall(TEST_TARGET, TEST_METHOD, "timeout");
 		router.push(rc);
 		try {
 			router.getReturnBlocking(rc);
@@ -121,9 +122,20 @@ public class RPCRouterTest extends TestCase {
 	
 	@Test
 	public void testRemoteException() throws InterruptedException {
-		System.out.println("\nTEST REMOTE EXCEPTION");
+		System.out.println("\nTEST REMOTE EXCEPTIONS");
 		router.start();
-		RemoteCall rc = new RemoteCall(TEST_TARGET, "testMethod", "failure");
+		
+		RemoteCall rc = new RemoteCall(TEST_TARGET, TEST_METHOD, "failure");
+		router.push(rc);
+		try {
+			router.getReturnBlocking(rc);
+			fail("There should have been a remote exception");
+		} catch (RemoteException e) {
+		} catch (TimeoutException e) {
+			fail("It should not have timed out");
+		}
+		
+		rc = new RemoteCall(TEST_TARGET, TEST_METHOD, true, false);
 		router.push(rc);
 		try {
 			router.getReturnBlocking(rc);
@@ -149,7 +161,7 @@ public class RPCRouterTest extends TestCase {
 		/* Test one call for various type of call argument */
 		for (Object arg:callArgs) {
 			
-			RemoteCall rc = new RemoteCall(TEST_TARGET, "testMethod", arg);
+			RemoteCall rc = new RemoteCall(TEST_TARGET, TEST_METHOD, arg);
 			
 			/* Failure test */
 			try {
@@ -204,6 +216,23 @@ public class RPCRouterTest extends TestCase {
 		}
  
 	}
+		
+	@Test
+	public void testVoidReturn() {
+		System.out.println("\nTEST VOID RETURN");
+		router.start();
+		RemoteCall rc = new RemoteCall(TEST_TARGET, "voidTestMethod");
+		router.push(rc);
+		try {
+			Object ret = router.getReturnBlocking(rc);
+			assertNotNull(ret);
+			assertEquals(ret, RPCRouter.VOID);
+		} catch (TimeoutException e) {
+			fail("This should not have timed out");
+		} catch (Exception e) {
+			fail("There should not be any error here: " + e.getMessage());
+		}
+	}
 	
 	/**
 	 * Test RPC object
@@ -214,6 +243,11 @@ public class RPCRouterTest extends TestCase {
 		@Override
 		public String getRPCName() {
 			return TEST_TARGET;
+		}
+		
+		@RPCMethod
+		public void voidTestMethod() {
+			return;
 		}
 		
 		@RPCMethod
