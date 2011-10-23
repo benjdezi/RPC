@@ -23,6 +23,32 @@ public class TestQueue extends TestCase {
 		assertEquals(q.size(),0);
 	}
 	
+	@Test 
+	public void testPutBack() {
+		Queue<Integer> q = new Queue<Integer>();
+		q.offer(1);
+		q.offer(2);
+		q.offer(3);
+		int head = q.poll();
+		assertEquals(q.size(), 2);
+		assertEquals((int)q.peek(), 2);
+		q.putBack(head);
+		assertEquals(q.size(), 3);
+		assertEquals((int)q.peek(), head);		
+	}
+	
+	@Test 
+	public void testPeek() {
+		Queue<Integer> q = new Queue<Integer>();
+		q.offer(1);
+		q.offer(2);
+		q.offer(3);
+		int peek = q.peek();
+		assertEquals(q.size(), 3);
+		assertEquals(peek, 1);
+		assertEquals((int)q.poll(), peek);
+	}
+	
 	@Test
 	public void testGetWithTimeout() {
 		int timeout = 1;
