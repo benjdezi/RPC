@@ -1,21 +1,14 @@
 package com.labs.rpc.transport;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.security.KeyStore;
-
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
-
 import org.junit.Test;
 import com.labs.rpc.util.AsyncTask;
 import junit.framework.TestCase;
@@ -32,24 +25,11 @@ public class BaseSSLTransportTest extends TestCase {
 	private static final int TEST_PORT = 11113;
 	private TransportImpl transp;
 	private SSLServerSocket servSock;
-	
-	protected static final SSLServerSocketFactory getSSLServerSocketFactory() throws Exception {
-		SSLContext ctx = SSLContext.getInstance("TLS");
-		KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-		KeyStore ks = KeyStore.getInstance("JKS");
-		char[] passphrase = "123abc".toCharArray();
 		
-		ks.load(new FileInputStream(new File("/Users/ben/testServerKeyStore")), passphrase);
-		kmf.init(ks, passphrase);
-		ctx.init(kmf.getKeyManagers(), null, null);
-		
-		return ctx.getServerSocketFactory();
-	}
-	
 	public void setUp() {
 		/* Set server up */
 		try {
-			SSLServerSocketFactory sslserversocketfactory = getSSLServerSocketFactory();
+			SSLServerSocketFactory sslserversocketfactory = BaseSSLTransport._getSSLServerSocketFactory("/Users/ben/testServerKeyStore", "123abc");
 			servSock = (SSLServerSocket)sslserversocketfactory.createServerSocket(TEST_PORT);
 		} catch (Exception e) {
 			e.printStackTrace();
