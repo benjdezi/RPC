@@ -7,7 +7,6 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.security.KeyStore;
-
 import javax.net.ssl.*;
 
 /**
@@ -45,6 +44,8 @@ public abstract class BaseSSLTransport extends BaseTransport {
 	
 	/**
 	 * Return the appropriate client socket factory for the given key store
+	 * @param ksPath {@link String} - Path to the key store
+	 * @param pwd {@link String} - Keystore password
 	 * @return {@link SSLSocketFactory}
 	 * @throws Exception
 	 */
@@ -62,11 +63,38 @@ public abstract class BaseSSLTransport extends BaseTransport {
 	}
 	
 	/**
-	 * Get the appropriate socket factory
+	 * Get the appropriate client socket factory
 	 * @return {@link SSLSocketFactory}
 	 * @throws Exception
 	 */
 	protected abstract SSLSocketFactory getSSLSocketFactory() throws Exception;
+	
+	/**
+	 * Get the appropriate server socket factory
+	 * @param ksPath {@link String} - Path to the key store
+	 * @param pwd {@link String} - Keystore password
+	 * @return {@link SSLServerSocketFactory}
+	 * @throws Exception
+	 */
+	protected static SSLServerSocketFactory _getSSLServerSocketFactory(String ksPath, String pwd) throws Exception {
+		SSLContext ctx = SSLContext.getInstance("TLS");
+		KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+		KeyStore ks = KeyStore.getInstance("JKS");
+		char[] passphrase = pwd.toCharArray();
+		ks.load(new FileInputStream(new File(ksPath)), passphrase);
+		kmf.init(ks, passphrase);
+		ctx.init(kmf.getKeyManagers(), null, null);
+		return ctx.getServerSocketFactory();
+	}
+	
+	/**
+	 * Return the appropriate server socket factory for the given key store
+	 * @return {@link SSLServerSocketFactory}
+	 * @throws Exception
+	 */
+	public static SSLServerSocketFactory getSSLServerSocketFactory() throws Exception {
+		throw new Exception("Not implemented");
+	};
 	
 	@Override
 	protected boolean connect() {
