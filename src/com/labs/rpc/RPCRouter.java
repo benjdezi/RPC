@@ -39,7 +39,7 @@ public class RPCRouter {
 	private XmitThread sendLoop;			// Sending thread
 	private CallProcessor callProc;			// Processing thread for incoming calls
 	private CallTimeOuter timouter;			// Call timeouter
-	private CallBack onExitCallback;		// Exit callback
+	private CallBack onFailureCallback;		// Failure callback
 
 	/**
 	 * Create a new router
@@ -63,19 +63,19 @@ public class RPCRouter {
 	 * Create a new router
 	 * @param obj {@link RPCObject} - Object this router will locally apply calls to
 	 * @param transport {@link Transport} - Transport to be used
-	 * @param onExit {@link CallBack} - Method to call when exiting (null if none)
+	 * @param onFailure {@link CallBack} - Method to call when terminate due to failure (null if none)
 	 */
-	public RPCRouter(RPCObject obj, Transport transport, CallBack onExit) {
-		this(new RPCObject[]{obj}, transport, onExit);
+	public RPCRouter(RPCObject obj, Transport transport, CallBack onFailure) {
+		this(new RPCObject[]{obj}, transport, onFailure);
 	}
 	
 	/**
 	 * Create a new router
 	 * @param objs {@link RPCObject}[] - Objects this router will locally apply calls to
 	 * @param transport {@link Transport} - Transport to be used
-	 * @param onExit {@link CallBack} - Method to call when exiting (null if none)
+	 * @param onFailure {@link CallBack} - Method to call when terminate due to failure (null if none)
 	 */
-	public RPCRouter(RPCObject[] objs, Transport transport, CallBack onExit) {
+	public RPCRouter(RPCObject[] objs, Transport transport, CallBack onFailure) {
 		killed = new AtomicBoolean(true);
 		recvLoop = new RecvThread(this);
 		sendLoop = new XmitThread(this);
@@ -86,7 +86,7 @@ public class RPCRouter {
 		for (RPCObject obj:objs) {
 			rpcObjs.put(obj.getRPCName(), obj);
 		}
-		onExitCallback = onExit;
+		onFailureCallback = onFailure;
 	}
 	
 	/**
@@ -342,9 +342,9 @@ public class RPCRouter {
 				} catch (IOException e) {
 					/* Connection error, abort all */
 					router.kill();
-					/* Call onExit callback */
-					if (router.onExitCallback != null) {
-						router.onExitCallback.call();
+					/* Call failure callback */
+					if (router.onFailureCallback != null) {
+						router.onFailureCallback.call();
 					}
 					break;
 				} catch (InterruptedException e) {
