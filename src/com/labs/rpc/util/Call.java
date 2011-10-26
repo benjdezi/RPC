@@ -45,6 +45,10 @@ public class Call {
 		}
 	}
 	
+	public synchronized void resetStartTime() {
+		startTime = System.currentTimeMillis();
+	}
+	
 	public synchronized long getStartTime() {
 		return startTime;
 	}
