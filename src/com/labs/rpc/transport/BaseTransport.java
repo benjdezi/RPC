@@ -136,4 +136,9 @@ public abstract class BaseTransport implements Transport {
 		on.set(false);
 	}
 	
+	@Override
+	public Socket getSocket() {
+		return sock;
+	}
+	
 }
