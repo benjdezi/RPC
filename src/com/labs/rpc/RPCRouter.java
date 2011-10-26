@@ -217,14 +217,22 @@ public class RPCRouter {
 			return;
 		}
 		killed.set(true);
-		callProc.interrupt();
-		callProc = null;
-		recvLoop.interrupt();
-		recvLoop = null;
-		sendLoop.interrupt();
-		sendLoop = null;
-		timeouter.interrupt();
-		timeouter = null;	
+		if (callProc != null) {
+			callProc.interrupt();
+			callProc = null;
+		}
+		if (recvLoop != null) {
+			recvLoop.interrupt();
+			recvLoop = null;
+		}
+		if (sendLoop != null) {
+			sendLoop.interrupt();
+			sendLoop = null;
+		}
+		if (timeouter != null) {
+			timeouter.interrupt();
+			timeouter = null;	
+		}
 	}
 	
 	/**
