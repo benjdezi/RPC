@@ -25,12 +25,12 @@ public interface Transport {
 	public DataPacket recv() throws IOException;
 		
 	/**
-	 * Terminate all transport activities and release internal data
+	 * Terminate all transport activities and clear internal states
 	 */
 	public void shutdown();
 	
 	/**
-	 * Recover connection
+	 * Restart all activities and recover the connection
 	 */
 	public boolean recover();
 	
