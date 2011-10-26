@@ -1,7 +1,7 @@
 package com.labs.rpc.transport;
 
 import java.io.IOException;
-
+import java.net.Socket;
 
 /**
  * Abstract transport interface
@@ -33,5 +33,11 @@ public interface Transport {
 	 * Restart all activities and recover the connection
 	 */
 	public boolean recover();
+	
+	/**
+	 * Return the associated socket
+	 * @return {@link Socket}
+	 */
+	public Socket getSocket();
 	
 }

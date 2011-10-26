@@ -3,6 +3,7 @@ package com.labs.rpc;
 import java.util.*;
 import java.util.concurrent.TimeoutException;
 import java.io.IOException;
+import java.net.Socket;
 import junit.framework.*;
 import org.junit.Test;
 import com.labs.rpc.transport.DataPacket;
@@ -395,6 +396,11 @@ public class RPCRouterTest extends TestCase {
 				q = new Queue<byte[]>();
 			}
 			return true;
+		}
+		
+		@Override
+		public Socket getSocket() {
+			throw new IllegalStateException("Not applicable in this context");
 		}
 		
 	}
