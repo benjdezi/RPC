@@ -24,22 +24,22 @@ import com.labs.rpc.util.RemoteException;
 public class RPCRouter {
 
 	protected static final String VOID = "void";	// Return value for void methods
-	protected static final int DEFAULT_TIMEOUT = 5;	// Default timeout for calls (in seconds)
+	protected static int DEFAULT_TIMEOUT = 5;		// Default timeout for calls (in seconds)
 	protected static int TIMEOUT;					// Timeout value for calls
 	
-	private AtomicBoolean killed;			// Whether this router is dead
+	protected AtomicBoolean killed;					// Whether this router is dead
 	
-	private Transport transp;				// Object transport
-	private Map<String,RPCObject> rpcObjs;	// RPC object map: RPC Name -> Object
-	private Queue<Call> outCalls;			// Outgoing calls waiting to be sent
-	private Map<Long,Call> outWait;			// Outgoing calls waiting for returns
-	private Queue<Call> inCalls;			// Incoming calls waiting for processing
-	private Map<Long,Call> inWait;			// Incoming calls waiting for end of processing
-	private RecvThread recvLoop;			// Receiving thread
-	private XmitThread sendLoop;			// Sending thread
-	private CallProcessor callProc;			// Processing thread for incoming calls
-	private CallTimeOuter timouter;			// Call timeouter
-	private CallBack onFailureCallback;		// Failure callback
+	protected Transport transp;						// Object transport
+	protected Map<String,RPCObject> rpcObjs;		// RPC object map: RPC Name -> Object
+	protected Queue<Call> outCalls;					// Outgoing calls waiting to be sent
+	protected Map<Long,Call> outWait;				// Outgoing calls waiting for returns
+	protected Queue<Call> inCalls;					// Incoming calls waiting for processing
+	protected Map<Long,Call> inWait;				// Incoming calls waiting for end of processing
+	protected RecvThread recvLoop;					// Receiving thread
+	protected XmitThread sendLoop;					// Sending thread
+	protected CallProcessor callProc;				// Processing thread for incoming calls
+	protected CallTimeOuter timeouter;				// Call timeouter
+	protected CallBack onFailureCallback;			// Failure callback
 
 	/**
 	 * Create a new router
@@ -80,7 +80,7 @@ public class RPCRouter {
 		recvLoop = new RecvThread(this);
 		sendLoop = new XmitThread(this);
 		callProc = new CallProcessor(this);
-		timouter = new CallTimeOuter(this);
+		timeouter = new CallTimeOuter(this);
 		transp = transport;
 		rpcObjs = new HashMap<String,RPCObject>(objs.length);
 		for (RPCObject obj:objs) {
@@ -137,32 +137,75 @@ public class RPCRouter {
 	public void start(int timeout) {
 		killed.set(false);
 		TIMEOUT = timeout > 0 ? timeout : DEFAULT_TIMEOUT;
-		outCalls = new Queue<Call>();
-		outWait = new HashMap<Long,Call>(0);
-		inCalls = new Queue<Call>();
-		inWait = new HashMap<Long,Call>(0);
-		timouter.start();
-		recvLoop.start();
-		sendLoop.start();
-		callProc.start();
+		if (outCalls == null) {
+			outCalls = new Queue<Call>();
+		}
+		if (outWait == null) {
+			outWait = new HashMap<Long,Call>(0);
+		} else {
+			/* Reset pending calls to prevent them from timing out */
+			for (Call call:outWait.values()) {
+				call.resetStartTime();
+			}
+		}
+		if (inCalls == null) {
+			inCalls = new Queue<Call>();
+		}
+		if (inWait == null) {
+			inWait = new HashMap<Long,Call>(0);
+		}
+		if (timeouter == null) {
+			timeouter = new CallTimeOuter(this);
+		}
+		if (!timeouter.isAlive()) {
+			timeouter.start();
+		}
+		if (recvLoop == null) {
+			recvLoop = new RecvThread(this);
+		}
+		if (!recvLoop.isAlive()) {
+			recvLoop.start();
+		}
+		if (sendLoop == null) {
+			sendLoop = new XmitThread(this);
+		}
+		if (!sendLoop.isAlive()) {
+			sendLoop.start();
+		}
+		if (callProc == null) {
+			callProc = new CallProcessor(this);
+		}
+		if (!callProc.isAlive()) {
+			callProc.start();
+		}
 	}
 	
 	/**
-	 * Stop all processing loops and flush internal states
+	 * Stop all processing loops and reset internal states 
 	 */
 	public void stop() {
+		stop(true);
+	}
+	
+	/**
+	 * Stop all processing loops
+	 * @param flush boolean - Reset internal states if true 
+	 */
+	public void stop(boolean flush) {
 		kill();
-		if (outCalls != null) {
-			outCalls.clear();
-		}
-		if (outWait != null) {
-			outWait.clear();
-		}
-		if (inCalls != null) {
-			inCalls.clear();
-		}
-		if (inWait != null) {
-			inWait.clear();
+		if (flush) {
+			if (outCalls != null) {
+				outCalls.clear();
+			}
+			if (outWait != null) {
+				outWait.clear();
+			}
+			if (inCalls != null) {
+				inCalls.clear();
+			}
+			if (inWait != null) {
+				inWait.clear();
+			}
 		}
 	}
 	
@@ -175,18 +218,37 @@ public class RPCRouter {
 		}
 		killed.set(true);
 		callProc.interrupt();
+		callProc = null;
 		recvLoop.interrupt();
+		recvLoop = null;
 		sendLoop.interrupt();
-		timouter.interrupt();
-		transp.shutdown();		
+		sendLoop = null;
+		timeouter.interrupt();
+		timeouter = null;	
 	}
 	
 	/**
-	 * Return whether this router is still running
+	 * Return whether this router is fully running.<br>
+	 * Meaning that the router started and all internal threads are alive.
 	 * @return boolean
 	 */
 	public boolean isAlive() {
-		return !killed.get();
+		if (!killed.get()) {
+			if (callProc == null || !callProc.isAlive()) {
+				return false;
+			}
+			if (recvLoop == null || !recvLoop.isAlive()) {
+				return false;
+			}
+			if (sendLoop == null || !sendLoop.isAlive()) {
+				return false;
+			}
+			if (timeouter == null || !timeouter.isAlive()) {
+				return false;
+			}
+			return true;
+		}
+		return false;
 	}
 	
 	/**
@@ -280,6 +342,16 @@ public class RPCRouter {
 		}
 	}
 	
+	/**
+	 * Return whether the given call is in the system
+	 * @param seq long - Call sequence number
+	 * @return boolean
+	 */
+	protected boolean hasCall(long seq) {
+		synchronized(outWait) { 
+			return (outWait.get(seq) != null);
+		}
+	}
 	
 	/**
 	 * Receiving thread

@@ -234,6 +234,79 @@ public class RPCRouterTest extends TestCase {
 		}
 	}
 	
+	@Test
+	public void testStartStop() {
+		RemoteCall rc1 = new RemoteCall(TEST_TARGET, TEST_METHOD, 1);
+		RemoteCall rc2 = new RemoteCall(TEST_TARGET, TEST_METHOD, 2);
+		/* Restart with flushing */
+		router.start();
+		assertTrue(router.isAlive());
+		router.stop();
+		assertFalse(router.isAlive());
+		router.start();
+		assertTrue(router.isAlive());
+		/* Restart witht no flushing */
+		router.push(rc1);
+		router.stop(false);
+		assertTrue(router.hasCall(rc1.getSeq()));
+		assertFalse(router.isAlive());
+		router.push(rc2);
+		router.start();
+		assertTrue(router.isAlive());
+		assertTrue(router.hasCall(rc2.getSeq()));
+		try {
+			Object ret = router.getReturnBlocking(rc1);
+			assertNotNull(ret);
+			assertEquals(ret, 1);
+			ret = router.getReturnBlocking(rc2);
+			assertNotNull(ret);
+			assertEquals(ret, 2);
+		} catch (TimeoutException e) {
+			fail("This should not have timed out");
+		} catch (Exception e) {
+			e.printStackTrace();
+			fail("There should not be any error here: " + e.getMessage());
+		}
+		/* Double start */
+		router.start();
+		router.start();
+		assertTrue(router.isAlive());
+		/* Double stop */
+		router.stop();
+		router.stop();
+		assertFalse(router.isAlive());		
+	}
+	
+	@Test
+	public void testMultiTarget() {
+		router.start();
+		router.registerTargetObject("obj1", new TestRPCObject());
+		router.registerTargetObject("obj2", new TestRPCObject());
+		RemoteCall rc1 = new RemoteCall("obj1", "testMethod", 1);
+		router.push(rc1);
+		try {
+			Object ret = router.getReturnBlocking(rc1);
+			assertNotNull(ret);
+			assertEquals(ret, 1);
+		} catch (TimeoutException e) {
+			fail("This should not have timed out");
+		} catch (Exception e) {
+			fail("There should not be any error here: " + e.getMessage());
+		}
+		RemoteCall rc2 = new RemoteCall("obj2", "testMethod", 2);
+		router.push(rc2);
+		try {
+			Object ret = router.getReturnBlocking(rc2);
+			assertNotNull(ret);
+			assertEquals(ret, 2);
+		} catch (TimeoutException e) {
+			fail("This should not have timed out");
+		} catch (Exception e) {
+			fail("There should not be any error here: " + e.getMessage());
+		}
+	}
+	
+	
 	/**
 	 * Test RPC object
 	 * @author Benjamin Dezile
@@ -268,6 +341,7 @@ public class RPCRouterTest extends TestCase {
 		}
 	
 	}
+	
 	
 	/**
 	 * Test transport
@@ -309,12 +383,18 @@ public class RPCRouterTest extends TestCase {
 
 		@Override
 		public void shutdown() {
-			q.clear();
+			if (q != null) {
+				q.clear();
+			}
+			q = null;
 		}
 
 		@Override
 		public boolean recover() {
-			throw new IllegalStateException("Not applicable in this context");
+			if (q == null) {
+				q = new Queue<byte[]>();
+			}
+			return true;
 		}
 		
 	}
