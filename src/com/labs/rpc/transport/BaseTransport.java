@@ -54,11 +54,22 @@ public abstract class BaseTransport implements Transport {
 	}
 	
 	/**
+	 * Change the associated prot
+	 * @param port int - New port
+	 */
+	public void setPort(int port) {
+		this.port = port;
+	}
+	
+	/**
 	 * Establish connection
 	 * @return boolean True upon sucess, false otherwise
 	 */
 	protected boolean connect() {
 		int attempts = 0;
+		if (port <= 0) {
+			throw new IllegalArgumentException("Invalid port: " + port);
+		}
 		while (true) {
 			try {
 				/* Trying to connect */
