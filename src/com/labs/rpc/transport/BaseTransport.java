@@ -63,7 +63,6 @@ public abstract class BaseTransport implements Transport {
 			try {
 				/* Trying to connect */
 				attempts++;
-				System.out.println("Connecting to " + address.getHostName() + ":" + port);
 				sock = new Socket(address, port);
 				afterConnect(sock);
 				on.set(true);
@@ -72,6 +71,7 @@ public abstract class BaseTransport implements Transport {
 				System.err.println("Unknown host: " + address);
 			} catch (IOException e) {
 				System.err.println("Could not connect: " + e.getMessage());
+				e.printStackTrace();
 			}
 			if (attempts == MAX_CONNECT) {
 				/* Failed to connect */
