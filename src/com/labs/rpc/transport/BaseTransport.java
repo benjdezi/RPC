@@ -63,6 +63,7 @@ public abstract class BaseTransport implements Transport {
 			try {
 				/* Trying to connect */
 				attempts++;
+				System.out.println("Connecting to " + address.getHostName() + ":" + port);
 				sock = new Socket(address, port);
 				afterConnect(sock);
 				on.set(true);
@@ -99,11 +100,8 @@ public abstract class BaseTransport implements Transport {
 	 * @return boolean True upon success
 	 */
 	public boolean recover() {
-		if (!on.get()) {
-			shutdown();
-			return connect();
-		}
-		return true;
+		shutdown();
+		return connect();
 	}
 	
 	@Override
