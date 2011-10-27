@@ -13,10 +13,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class BaseTransport implements Transport {
 
 	protected static final int MAX_CONNECT = 4;
-	protected Socket sock;
-	protected InetAddress address;
-	protected int port;
-	protected AtomicBoolean on;
+	protected Socket sock;				// Socket
+	protected InetAddress address;		// Remote address
+	protected int port;					// Remote port
+	protected int recoveryPort;			// Port to use for reconnection (default to port)
+	protected AtomicBoolean on;			// Whether it is active
 	
 	/**
 	 * Create a new transport instance
@@ -27,6 +28,7 @@ public abstract class BaseTransport implements Transport {
 		this.sock = null;
 		this.address = address;
 		this.port = port;
+		this.recoveryPort = port;
 		on = new AtomicBoolean(false);
 		connect();
 	}
@@ -35,7 +37,7 @@ public abstract class BaseTransport implements Transport {
 	 * Create a new transport instance
 	 * @param sock {@link Socket} - Socket to use 
 	 */
-	public BaseTransport(Socket sock) {
+	public BaseTransport(Socket sock, int recoveryPort) {
 		this.sock = sock;
 		this.address = sock.getInetAddress();
 		this.port = sock.getPort();
