@@ -16,7 +16,6 @@ public abstract class BaseTransport implements Transport {
 	protected Socket sock;				// Socket
 	protected InetAddress address;		// Remote address
 	protected int port;					// Remote port
-	protected int recoveryPort;			// Port to use for reconnection (default to port)
 	protected AtomicBoolean on;			// Whether it is active
 	
 	/**
@@ -28,7 +27,6 @@ public abstract class BaseTransport implements Transport {
 		this.sock = null;
 		this.address = address;
 		this.port = port;
-		this.recoveryPort = port;
 		on = new AtomicBoolean(false);
 		connect();
 	}
@@ -40,7 +38,7 @@ public abstract class BaseTransport implements Transport {
 	public BaseTransport(Socket sock, int recoveryPort) {
 		this.sock = sock;
 		this.address = sock.getInetAddress();
-		this.port = sock.getPort();
+		this.port = recoveryPort;
 		on = new AtomicBoolean(true);
 	}
 	
