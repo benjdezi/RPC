@@ -13,10 +13,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class BaseTransport implements Transport {
 
 	protected static final int MAX_CONNECT = 4;
-	protected Socket sock;
-	protected InetAddress address;
-	protected int port;
-	protected AtomicBoolean on;
+	protected Socket sock;				// Socket
+	protected InetAddress address;		// Remote address
+	protected int port;					// Remote port
+	protected AtomicBoolean on;			// Whether it is active
 	
 	/**
 	 * Create a new transport instance
@@ -35,10 +35,10 @@ public abstract class BaseTransport implements Transport {
 	 * Create a new transport instance
 	 * @param sock {@link Socket} - Socket to use 
 	 */
-	public BaseTransport(Socket sock) {
+	public BaseTransport(Socket sock, int recoveryPort) {
 		this.sock = sock;
 		this.address = sock.getInetAddress();
-		this.port = sock.getPort();
+		this.port = recoveryPort;
 		on = new AtomicBoolean(true);
 	}
 	
@@ -54,11 +54,22 @@ public abstract class BaseTransport implements Transport {
 	}
 	
 	/**
+	 * Change the associated prot
+	 * @param port int - New port
+	 */
+	public void setPort(int port) {
+		this.port = port;
+	}
+	
+	/**
 	 * Establish connection
 	 * @return boolean True upon sucess, false otherwise
 	 */
 	protected boolean connect() {
 		int attempts = 0;
+		if (port <= 0) {
+			throw new IllegalArgumentException("Invalid port: " + port);
+		}
 		while (true) {
 			try {
 				/* Trying to connect */
@@ -99,11 +110,8 @@ public abstract class BaseTransport implements Transport {
 	 * @return boolean True upon success
 	 */
 	public boolean recover() {
-		if (!on.get()) {
-			shutdown();
-			return connect();
-		}
-		return true;
+		shutdown();
+		return connect();
 	}
 	
 	@Override

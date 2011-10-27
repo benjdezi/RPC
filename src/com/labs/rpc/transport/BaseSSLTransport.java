@@ -28,18 +28,20 @@ public abstract class BaseSSLTransport extends BaseTransport {
 
 	/**
 	 * Create a new transport instance
-	 * @param sock {@link SSLSocket} - Socket to use 
+	 * @param sock {@link SSLSocket} - Socket to use
+	 * @param recoveryPort int - Port to use when reconnecting 
 	 */
-	public BaseSSLTransport(SSLSocket sock) {
-		super(sock);
+	public BaseSSLTransport(SSLSocket sock, int recoveryPort) {
+		super(sock, recoveryPort);
 	}
 	
 	/**
 	 * Create a new transport instance
 	 * @param sock {@link Socket} - Socket to wrap around 
+	 * @param recoveryPort int - Port to use when reconnecting
 	 */
-	public BaseSSLTransport(Socket sock) {
-		super(sock);
+	public BaseSSLTransport(Socket sock, int recoveryPort) {
+		super(sock, recoveryPort);
 	}
 	
 	/**
@@ -126,6 +128,7 @@ public abstract class BaseSSLTransport extends BaseTransport {
 				System.err.println("Unknown host: " + address);
 			} catch (IOException e) {
 				System.err.println("Could not connect: " + e.getMessage());
+				e.printStackTrace();
 			}
 			if (attempts == MAX_CONNECT) {
 				/* Failed to connect */
