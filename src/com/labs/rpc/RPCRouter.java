@@ -543,7 +543,7 @@ public class RPCRouter {
 			Method method = null;
 			RPCObject target = router.getTargetObject(rc.getTarget());
 			if (target == null) {
-				throw new NullPointerException("Target not found: " + rc.getTarget());
+				throw new Exception("Target not found: " + rc.getTarget());
 			}
 			Class<?> clazz = target.getClass();
 			for (Method meth:clazz.getMethods()) {
