@@ -128,7 +128,6 @@ public abstract class BaseSSLTransport extends BaseTransport {
 				System.err.println("Unknown host: " + address);
 			} catch (IOException e) {
 				System.err.println("Could not connect: " + e.getMessage());
-				e.printStackTrace();
 			}
 			if (attempts == MAX_CONNECT) {
 				/* Failed to connect */

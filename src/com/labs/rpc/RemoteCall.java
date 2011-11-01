@@ -1,5 +1,6 @@
 package com.labs.rpc;
 
+import java.nio.ByteBuffer;
 import java.util.*;
 import org.json.*;
 
@@ -65,7 +66,9 @@ public class RemoteCall extends DataPacket {
 	}
 	
 	/**
-	 * Get the packet bytes to send over
+	 * Get the packet bytes to send over.<br>
+	 * Formatted as target|method|#args+argInfo1+...+argInfoN,
+	 * where argInfo is argLen + argData
 	 * @return byte[]
 	 */
 	public byte[] getBytes() {
@@ -73,13 +76,27 @@ public class RemoteCall extends DataPacket {
 		buf.append(target);
 		buf.append(SEP);
 		buf.append(meth);
+		buf.append(SEP);
+		buf.append(new String(IntToBytes(args.length)));
 		for (Object arg:args) {
-			buf.append(SEP);
-			buf.append(new String(packObject(arg)));
+			String argData = new String(packObject(arg));
+			buf.append(new String(IntToBytes(argData.length())));
+			buf.append(argData);
 		}
 		byte[] header = makeHeaderBytes(buf.length());
 		byte[] payload = buf.toString().getBytes();
 		return makePacketBytes(header, payload);
+	}
+	
+	/**
+	 * Convert an integer to bytes
+	 * @param i int - Integer value
+	 * @return byte[]
+	 */
+	private byte[] IntToBytes(int i) {
+		ByteBuffer buf = ByteBuffer.allocate(4);
+		buf.putInt(i);
+		return buf.array();
 	}
 	
 	/**
@@ -93,7 +110,7 @@ public class RemoteCall extends DataPacket {
 			throw new IllegalArgumentException("Wrong type of packet: " + dp.getType());
 		}
 		RemoteCall rc = new RemoteCall();
-		String[] parts = new String(dp.getPayload()).split(SEP);
+		String[] parts = new String(dp.getPayload()).split(SEP, 3);
 		if (parts.length == 0) {
 			throw new IllegalArgumentException("Invalid packet (no valid call data)");
 		}
@@ -101,9 +118,16 @@ public class RemoteCall extends DataPacket {
 		rc.time = dp.getTime();
 		rc.target = parts[0];
 		rc.meth = parts[1];
-		rc.args = new Object[parts.length-2];
-		for (int i=2;i<parts.length;i++) {
-			rc.args[i-2] = unpackObject(parts[i]);
+		byte[] argsData = parts[2].substring(4).getBytes();
+		ByteBuffer buf = ByteBuffer.wrap(parts[2].substring(0,4).getBytes());
+		int nArgs = buf.getInt(0);
+		rc.args = new Object[nArgs];
+		int size, n = 0;
+		for (int i=0;i<nArgs;i++) {
+			buf = ByteBuffer.wrap(Arrays.copyOfRange(argsData, n, n + 4));
+			size = buf.getInt(0);
+			rc.args[i] = unpackObject(new String(Arrays.copyOfRange(argsData, n + 4, n + 4 + size)));
+			n += (size + 4);
 		}
 		return rc;
 	}
