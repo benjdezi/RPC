@@ -1,9 +1,10 @@
 package com.labs.rpc;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
 import org.json.*;
-
 import com.labs.rpc.transport.DataPacket;
 
 /**
@@ -72,20 +73,32 @@ public class RemoteCall extends DataPacket {
 	 * @return byte[]
 	 */
 	public byte[] getBytes() {
-		StringBuffer buf = new StringBuffer();
-		buf.append(target);
-		buf.append(SEP);
-		buf.append(meth);
-		buf.append(SEP);
-		buf.append(new String(IntToBytes(args.length)));
-		for (Object arg:args) {
-			String argData = new String(packObject(arg));
-			buf.append(new String(IntToBytes(argData.length())));
-			buf.append(argData);
+		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+		try {
+			buffer.write(encode(target));
+			buffer.write(encode(meth));
+			buffer.write(IntToBytes(args.length));
+			for (Object arg:args) {
+				buffer.write(encode(arg));
+			}
+		} catch(IOException e) {
+			return null;
 		}
-		byte[] header = makeHeaderBytes(buf.length());
-		byte[] payload = buf.toString().getBytes();
-		return makePacketBytes(header, payload);
+		byte[] header = makeHeaderBytes(buffer.size());
+		return makePacketBytes(header, buffer.toByteArray());
+	}
+	
+	/**
+	 * Encode a given object
+	 * @param obj {@link Object} - Object to encode
+	 * @return byte[] Encoded bytes representing the object
+	 */
+	private byte[] encode(Object obj) {
+		byte[] bytes = packObject(obj);
+		ByteBuffer buffer = ByteBuffer.allocate(4 + bytes.length);
+		buffer.putInt(bytes.length);
+		buffer.put(bytes);
+		return buffer.array();
 	}
 	
 	/**
@@ -104,32 +117,36 @@ public class RemoteCall extends DataPacket {
 	 * @param dp {@link DataPacket} - Data packet
 	 * @return {@link RemoteCall}
 	 * @throws Exception 
-	 */
+	 */	
 	public static RemoteCall fromPacket(DataPacket dp) throws Exception {
 		if (dp.getType() != TYPE) {
 			throw new IllegalArgumentException("Wrong type of packet: " + dp.getType());
 		}
+		ByteBuffer buffer = ByteBuffer.wrap(dp.getPayload());
 		RemoteCall rc = new RemoteCall();
-		String[] parts = new String(dp.getPayload()).split(SEP, 3);
-		if (parts.length == 0) {
-			throw new IllegalArgumentException("Invalid packet (no valid call data)");
-		}
 		rc.seq = dp.getSeq();
 		rc.time = dp.getTime();
-		rc.target = parts[0];
-		rc.meth = parts[1];
-		byte[] argsData = parts[2].substring(4).getBytes();
-		ByteBuffer buf = ByteBuffer.wrap(parts[2].substring(0,4).getBytes());
-		int nArgs = buf.getInt(0);
+		rc.target = (String)decodeNext(buffer);
+		rc.meth = (String)decodeNext(buffer);
+		int nArgs = buffer.getInt();
 		rc.args = new Object[nArgs];
-		int size, n = 0;
 		for (int i=0;i<nArgs;i++) {
-			buf = ByteBuffer.wrap(Arrays.copyOfRange(argsData, n, n + 4));
-			size = buf.getInt(0);
-			rc.args[i] = unpackObject(new String(Arrays.copyOfRange(argsData, n + 4, n + 4 + size)));
-			n += (size + 4);
+			rc.args[i] = decodeNext(buffer);
 		}
 		return rc;
+	}
+	
+	/**
+	 * Decode the next available object from the given buffer
+	 * @param buffer {@link ByteBuffer} - Data buffer
+	 * @return {@link Object} Decoded object
+	 * @throws Exception
+	 */
+	private static Object decodeNext(ByteBuffer buffer) throws Exception {
+		int size = buffer.getInt();
+		byte[] bytes = new byte[size];
+		buffer.get(bytes);
+		return unpackObject(bytes);
 	}
 	
 	/**

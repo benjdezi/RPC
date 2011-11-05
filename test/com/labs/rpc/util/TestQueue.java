@@ -70,4 +70,25 @@ public class TestQueue extends TestCase {
 		}
 	}
 		
+	@Test
+	public void testBenchmark() {
+		Queue<Object> q = new Queue<Object>();
+		int n = 100;
+		long t,dt = 0;
+		Object o = new Object();
+		for (int i=0;i<n;i++) {
+			t = System.nanoTime();
+			q.offer(o);
+			dt += (System.nanoTime() - t);
+		}
+		System.out.println("Offer = " + (dt/(n*1000*1000.0)) + " ms");
+		dt = 0;
+		for (int i=0;i<n;i++) {
+			t = System.nanoTime();
+			q.poll();
+			dt += (System.nanoTime() - t);
+		}
+		System.out.println("Poll = " + (dt/(n*1000*1000.0)) + " ms");
+	}
+	
 }

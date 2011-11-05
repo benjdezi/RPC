@@ -65,7 +65,7 @@ public class RemoteCallReturn extends DataPacket {
 		RemoteCallReturn rcr = new RemoteCallReturn();
 		rcr.seq = dp.getSeq();
 		rcr.time = dp.getTime();
-		rcr.val = unpackObject(new String(dp.getPayload()));
+		rcr.val = unpackObject(dp.getPayload());
 		return rcr;
 	}
 	
