@@ -1,15 +1,16 @@
 package com.labs.rpc.transport;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
-
 import com.labs.rpc.util.RemoteException;
 
 /**
@@ -136,122 +137,137 @@ public class DataPacket {
 	 */
 	@SuppressWarnings("unchecked")
 	protected static byte[] packObject(Object arg) {
-		ByteBuffer buf;
-		byte type;
-		String data;
-		if (arg == null) {
-			type = FORMAT_NULL;
-			data = NULL;
-		} else if (arg instanceof Byte) {
-			type = FORMAT_BYTE;
-			data = arg.toString();
-		} else if (arg instanceof Character) {
-			type = FORMAT_CHAR;
-			data = arg.toString();
-		} else if (arg instanceof Short) {
-			type = FORMAT_SHORT;
-			data = arg.toString();
-		} else if (arg instanceof Boolean) {
-			type = FORMAT_BOOL;
-			data = arg.toString();
-		} else if (arg instanceof Integer) {
-			type = FORMAT_INT;
-			data = arg.toString();
-		} else if (arg instanceof Float) {
-			type = FORMAT_FLOAT;
-			data = arg.toString();
-		} else if (arg instanceof Double) {
-			type = FORMAT_DOUBLE;
-			data = arg.toString();
-		} else if (arg instanceof Long) {
-			type = FORMAT_LONG;
-			data = arg.toString();
-		} else if (arg instanceof String) {
-			type = FORMAT_STRING;
-			data = arg.toString();
-		} else if (arg.getClass().isArray()) {
-			JSONArray a = new JSONArray();
-			for (Object o:(Object[])arg) {
-				a.put(o);
+		try {
+			ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+			if (arg == null) {
+				buffer.write(FORMAT_NULL);
+			} else if (arg instanceof Byte) {
+				buffer.write(FORMAT_BYTE);
+				buffer.write((Byte)arg);
+			} else if (arg instanceof Character) {
+				buffer.write(FORMAT_CHAR);
+				ByteBuffer buf = ByteBuffer.allocate(2);
+				buf.putChar((Character)arg);
+				buffer.write(buf.array());
+			} else if (arg instanceof Short) {
+				buffer.write(FORMAT_SHORT);
+				ByteBuffer buf = ByteBuffer.allocate(2);
+				buf.putShort((Short)arg);
+				buffer.write(buf.array());
+			} else if (arg instanceof Boolean) {
+				buffer.write(FORMAT_BOOL);
+				ByteBuffer buf = ByteBuffer.allocate(2);
+				buf.put((byte)(((Boolean)arg).booleanValue() ? 1 : 0));
+				buffer.write(buf.array());
+			} else if (arg instanceof Integer) {
+				buffer.write(FORMAT_INT);
+				ByteBuffer buf = ByteBuffer.allocate(4);
+				buf.putInt((Integer)arg);
+				buffer.write(buf.array());
+			} else if (arg instanceof Float) {
+				buffer.write(FORMAT_FLOAT);
+				ByteBuffer buf = ByteBuffer.allocate(4);
+				buf.putFloat((Float)arg);
+				buffer.write(buf.array());
+			} else if (arg instanceof Double) {
+				buffer.write(FORMAT_DOUBLE);
+				ByteBuffer buf = ByteBuffer.allocate(8);
+				buf.putDouble((Double)arg);
+				buffer.write(buf.array());
+			} else if (arg instanceof Long) {
+				buffer.write(FORMAT_LONG);
+				ByteBuffer buf = ByteBuffer.allocate(8);
+				buf.putLong((Long)arg);
+				buffer.write(buf.array());
+			} else if (arg instanceof String) {
+				buffer.write(FORMAT_STRING);
+				buffer.write(((String)arg).getBytes());
+			} else if (arg.getClass().isArray()) {
+				JSONArray a = new JSONArray();
+				for (Object o:(Object[])arg) {
+					a.put(o);
+				}
+				buffer.write(FORMAT_ARRAY);
+				buffer.write(a.toString().getBytes());
+			} else if (arg instanceof ArrayList<?>) {
+				JSONArray a = new JSONArray();
+				for (Object o:(ArrayList)arg) {
+					a.put(o);
+				}
+				buffer.write(FORMAT_LIST);
+				buffer.write(a.toString().getBytes());		
+			} else if (arg instanceof JSONObject) {
+				buffer.write(FORMAT_JSON);
+				buffer.write(arg.toString().getBytes());
+			} else if (arg instanceof JSONArray) {
+				buffer.write(FORMAT_JSON_ARRAY);
+				buffer.write(arg.toString().getBytes());
+			} else if (arg instanceof Exception) {
+				buffer.write(FORMAT_REMOTE_EX);
+				RemoteException re = (RemoteException)arg;
+				String msg = re.getMessage();
+				buffer.write((msg != null ? msg : "").getBytes());
+			} else {
+				throw new IllegalArgumentException("Unsupported data type for " + arg);
 			}
-			type = FORMAT_ARRAY;
-			data = a.toString();
-		} else if (arg instanceof ArrayList<?>) {
-			JSONArray a = new JSONArray();
-			for (Object o:(ArrayList)arg) {
-				a.put(o);
-			}
-			type = FORMAT_LIST;
-			data = a.toString();		
-		} else if (arg instanceof JSONObject) {
-			type = FORMAT_JSON;
-			data = arg.toString();
-		} else if (arg instanceof JSONArray) {
-			type = FORMAT_JSON_ARRAY;
-			data = arg.toString();
-		} else if (arg instanceof Exception) {
-			type = FORMAT_REMOTE_EX;
-			RemoteException re = (RemoteException)arg; 
-			data = re.getMessage();
-		} else {
-			throw new IllegalArgumentException("Unsupported data type for " + arg);
+			return buffer.toByteArray();
+		} catch(IOException e) {
+			return null;
 		}
-		byte[] bytes = data.getBytes();
-		buf = ByteBuffer.allocate(1 + bytes.length);
-		buf.put(type);
-		buf.put(bytes);
-		return buf.array();
 	}
 
 	/**
 	 * Unpack an object
-	 * @param argData {@link String} - Data
+	 * @param argBytes byte[] - Packed object bytes
 	 * @return {@link Object}
 	 */
-	protected static Object unpackObject(String argData) throws Exception {
-		ByteBuffer buf = ByteBuffer.wrap(argData.substring(0,1).getBytes());
-		byte type = buf.get(0);
-		String data = argData.substring(1);
+	protected static Object unpackObject(byte[] argBytes) throws Exception {
+		ByteBuffer buf = ByteBuffer.wrap(argBytes);
+		byte type = buf.get();
 		if (type == FORMAT_NULL) {
 			return null;
 		} else if (type == FORMAT_BOOL) {
-			return "true".equals(data);
+			return buf.get() == (byte)1;
 		} else if (type == FORMAT_BYTE) {
-			return Byte.parseByte(data);
+			return buf.get();
 		} else if (type == FORMAT_CHAR) {
-			return data.charAt(0);
+			return buf.getChar();
 		} else if (type == FORMAT_SHORT) {
-			return Short.parseShort(data);
+			return buf.getShort();
 		} else if (type == FORMAT_INT) {
-			return Integer.parseInt(data);
+			return buf.getInt();
 		} else if (type == FORMAT_FLOAT) {
-			return Float.parseFloat(data);
+			return buf.getFloat();
 		} else if (type == FORMAT_DOUBLE) {
-			return Double.parseDouble(data);
+			return buf.getDouble();
 		} else if (type == FORMAT_LONG) {
-			return Long.parseLong(data);
+			return buf.getLong();
 		} else if (type == FORMAT_STRING) { 
-			return data;
+			return new String(argBytes).substring(1);
 		} else if (type == FORMAT_ARRAY) {
-			JSONArray a = new JSONArray(new JSONTokener((String)data));
+			String data = new String(argBytes).substring(1);
+			JSONArray a = new JSONArray(new JSONTokener(data));
 			Object[] array = new Object[a.length()];
 			for (int i=0;i<a.length();i++) {
 				array[i] = a.get(i);
 			}
 			return array;			
 		} else if (type == FORMAT_LIST) {
-			JSONArray a = new JSONArray(new JSONTokener((String)data));
+			String data = new String(argBytes).substring(1);
+			JSONArray a = new JSONArray(new JSONTokener(data));
 			List<Object> l = new ArrayList<Object>(a.length());
 			for (int i=0;i<a.length();i++) {
 				l.add(a.get(i));
 			}
 			return l;
 		} else if (type == FORMAT_JSON) {
-			return new JSONObject(new JSONTokener((String)data));
+			String data = new String(argBytes).substring(1);
+			return new JSONObject(new JSONTokener(data));
 		} else if (type == FORMAT_JSON_ARRAY) {
-			return new JSONArray(new JSONTokener((String)data));
+			String data = new String(argBytes).substring(1);
+			return new JSONArray(new JSONTokener(data));
 		} else if (type == FORMAT_REMOTE_EX) {
-			return new RemoteException(data);
+			return new RemoteException(new String(argBytes).substring(1));
 		} else {
 			throw new IllegalArgumentException("Invalid data type: " + type);
 		}
@@ -341,6 +357,41 @@ public class DataPacket {
 		return dp;
 	}
 
+	/**
+	 * Read a new packet object from a socket channel.<br>
+	 * This is a much-better-IO version of DataPacket.fromStream().
+	 * @param sc {@link SocketChannel} - Socket channel
+	 * @return {@link DataPacket}
+	 * @throws IOException
+	 */
+	public static DataPacket fromChannel(SocketChannel sc) throws IOException {
+		ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
+		int b,n = 0;
+		while (n < HEADER_SIZE) {
+			if ((b=sc.read(header)) < 0) {
+				throw new IOException("Connection closed");
+			}
+			n += b;
+		}
+		DataPacket dp = new DataPacket();
+		dp.type = header.get(0);
+		dp.time = header.getLong(5);
+		dp.seq = header.getLong(13);
+		int l = header.getInt(1);
+		ByteBuffer payload = ByteBuffer.allocateDirect(l);
+		n = 0;
+		while (n < l) {
+			if ((b=sc.read(payload)) < 0) {
+				throw new IOException("Connection closed");
+			}
+			n += b;
+		}
+		dp.payload = new byte[l];
+		payload.rewind();
+		payload.get(dp.payload, 0, l);
+		return dp;
+	}
+	
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
