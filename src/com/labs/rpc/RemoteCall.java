@@ -2,8 +2,8 @@ package com.labs.rpc;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
-import java.util.*;
 import org.json.*;
 import com.labs.rpc.transport.DataPacket;
 
@@ -178,8 +178,15 @@ public class RemoteCall extends DataPacket {
 				return false;
 			}
 			if (arg1.getClass().isArray() && arg2.getClass().isArray()) {
-				if (!Arrays.equals((Object[])arg1, (Object[])arg2)) {
-					return false;
+				int n = Array.getLength(arg1);
+				for (int j=0;j<n;j++) {
+					Object o1 = Array.get(arg1, j);
+					Object o2 = Array.get(arg2, j);
+					if (o1 == o2) {
+						continue;
+					} else if ((o1 == null && o2 != null) || (o1 != null && o2 == null) || !o1.equals(o2)) {
+						return false;
+					}
 				}
 			} else if (arg1 instanceof JSONObject && arg2 instanceof JSONObject) {
 				// TODO: JSONObject equals
