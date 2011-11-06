@@ -3,12 +3,18 @@ package com.labs.rpc.transport;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 import com.labs.rpc.util.RemoteException;
@@ -37,6 +43,9 @@ public class DataPacket {
 	protected static final byte FORMAT_JSON = 0x52;					// JSON object
 	protected static final byte FORMAT_JSON_ARRAY = 0x53;			// JSON array
 	protected static final byte FORMAT_REMOTE_EX = 0x54;			// Remote exception
+	protected static final byte FORMAT_BYTE_ARRAY = 0x55;			// Byte array
+	protected static final byte FORMAT_SET = 0x56;					// Set
+	protected static final byte FORMAT_MAP = 0x57;					// Map
 	
 	private static Long seqCounter = 0L;							// Sequence counter
 	protected byte type;											// Packet type
@@ -138,71 +147,118 @@ public class DataPacket {
 	@SuppressWarnings("unchecked")
 	protected static byte[] packObject(Object arg) {
 		try {
+			Class<?> argClass = arg != null ? arg.getClass() : null;
 			ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 			if (arg == null) {
+				/* Null value */
 				buffer.write(FORMAT_NULL);
 			} else if (arg instanceof Byte) {
+				/* Byte */
 				buffer.write(FORMAT_BYTE);
 				buffer.write((Byte)arg);
 			} else if (arg instanceof Character) {
+				/* Character */
 				buffer.write(FORMAT_CHAR);
 				ByteBuffer buf = ByteBuffer.allocate(2);
 				buf.putChar((Character)arg);
 				buffer.write(buf.array());
 			} else if (arg instanceof Short) {
+				/* Short */
 				buffer.write(FORMAT_SHORT);
 				ByteBuffer buf = ByteBuffer.allocate(2);
 				buf.putShort((Short)arg);
 				buffer.write(buf.array());
 			} else if (arg instanceof Boolean) {
+				/* Boolean */
 				buffer.write(FORMAT_BOOL);
 				ByteBuffer buf = ByteBuffer.allocate(2);
 				buf.put((byte)(((Boolean)arg).booleanValue() ? 1 : 0));
 				buffer.write(buf.array());
 			} else if (arg instanceof Integer) {
+				/* Integer */
 				buffer.write(FORMAT_INT);
 				ByteBuffer buf = ByteBuffer.allocate(4);
 				buf.putInt((Integer)arg);
 				buffer.write(buf.array());
 			} else if (arg instanceof Float) {
+				/* Float */
 				buffer.write(FORMAT_FLOAT);
 				ByteBuffer buf = ByteBuffer.allocate(4);
 				buf.putFloat((Float)arg);
 				buffer.write(buf.array());
 			} else if (arg instanceof Double) {
+				/* Double */
 				buffer.write(FORMAT_DOUBLE);
 				ByteBuffer buf = ByteBuffer.allocate(8);
 				buf.putDouble((Double)arg);
 				buffer.write(buf.array());
 			} else if (arg instanceof Long) {
+				/* Long */
 				buffer.write(FORMAT_LONG);
 				ByteBuffer buf = ByteBuffer.allocate(8);
 				buf.putLong((Long)arg);
 				buffer.write(buf.array());
 			} else if (arg instanceof String) {
+				/* String */
 				buffer.write(FORMAT_STRING);
 				buffer.write(((String)arg).getBytes());
-			} else if (arg.getClass().isArray()) {
-				JSONArray a = new JSONArray();
-				for (Object o:(Object[])arg) {
-					a.put(o);
+			} else if (argClass.isArray()) {
+				int size = Array.getLength(arg);
+				if (size == 0) {
+					/* Empty array */
+					buffer.write(FORMAT_ARRAY);
+				} else if (Array.get(arg, 0) instanceof Byte) {
+					/* Byte array */
+					buffer.write(FORMAT_BYTE_ARRAY);
+					buffer.write((byte[])arg);
+				} else {
+					/* Regular array */
+					JSONArray a = new JSONArray();
+					for (int i=0;i<size;i++) {
+						a.put(Array.get(arg, i));
+					}
+					buffer.write(FORMAT_ARRAY);
+					buffer.write(a.toString().getBytes());
 				}
-				buffer.write(FORMAT_ARRAY);
-				buffer.write(a.toString().getBytes());
 			} else if (arg instanceof ArrayList<?>) {
+				/* List */
 				JSONArray a = new JSONArray();
 				for (Object o:(ArrayList)arg) {
 					a.put(o);
 				}
 				buffer.write(FORMAT_LIST);
 				buffer.write(a.toString().getBytes());		
+			} else if (arg instanceof Set<?>) {
+				/* Set */
+				JSONArray a = new JSONArray();
+				for (Object o:(Set)arg) {
+					a.put(o);
+				}
+				buffer.write(FORMAT_SET);
+				buffer.write(a.toString().getBytes());	
+			} else if (arg instanceof Map<?,?>) {
+				/* Map */
+				Map map = (Map)arg;
+				JSONObject json = new JSONObject();
+				for (Object k:map.keySet()) {
+					try {
+						json.put(k.toString(), map.get(k));
+					} catch(JSONException e) {
+						e.printStackTrace();
+					}
+				}
+				buffer.write(FORMAT_MAP);
+				buffer.write(json.toString().getBytes());	
 			} else if (arg instanceof JSONObject) {
+				/* JSON object */
 				buffer.write(FORMAT_JSON);
 				buffer.write(arg.toString().getBytes());
 			} else if (arg instanceof JSONArray) {
+				/* JSON array */
 				buffer.write(FORMAT_JSON_ARRAY);
 				buffer.write(arg.toString().getBytes());
 			} else if (arg instanceof Exception) {
+				/* Exception */
 				buffer.write(FORMAT_REMOTE_EX);
 				RemoteException re = (RemoteException)arg;
 				String msg = re.getMessage();
@@ -244,14 +300,38 @@ public class DataPacket {
 			return buf.getLong();
 		} else if (type == FORMAT_STRING) { 
 			return new String(argBytes).substring(1);
+		} else if (type == FORMAT_BYTE_ARRAY) {
+			return Arrays.copyOfRange(argBytes, 1, argBytes.length);
 		} else if (type == FORMAT_ARRAY) {
+			if (argBytes.length > 1) {
+				String data = new String(argBytes).substring(1);
+				JSONArray a = new JSONArray(new JSONTokener(data));
+				Object[] array = new Object[a.length()];
+				for (int i=0;i<a.length();i++) {
+					array[i] = a.get(i);
+				}
+				return array;			
+			} else {
+				return new Object[]{};
+			}
+		} else if (type == FORMAT_SET) {
 			String data = new String(argBytes).substring(1);
 			JSONArray a = new JSONArray(new JSONTokener(data));
-			Object[] array = new Object[a.length()];
+			Set<Object> s = new HashSet<Object>(a.length());
 			for (int i=0;i<a.length();i++) {
-				array[i] = a.get(i);
+				s.add(a.get(i));
 			}
-			return array;			
+			return s;
+		} else if (type == FORMAT_MAP) {
+			String data = new String(argBytes).substring(1);
+			JSONObject json = new JSONObject(new JSONTokener(data));
+			JSONArray keys = json.names();
+			Map<String,Object> m = new HashMap<String, Object>(keys.length());
+			for (int i=0;i<keys.length();i++) {
+				String key = keys.getString(i);
+				m.put(key, json.get(key));
+			}
+			return m;
 		} else if (type == FORMAT_LIST) {
 			String data = new String(argBytes).substring(1);
 			JSONArray a = new JSONArray(new JSONTokener(data));

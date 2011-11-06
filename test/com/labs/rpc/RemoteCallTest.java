@@ -17,7 +17,32 @@ public class RemoteCallTest extends TestCase {
 	private static final String TEST_TARGET = "testObject";
 	private static final String TEST_METHOD = "testMethod";
 	private static final String TEST_DATA = "1234567890qwertyuiopasdfghjklzxcvbnm~`!@#$%^&*()_+=-{}[]\"':;<>?/.,\\|";
-	private static final Object[] TEST_ARGS = new Object[] {2, true, null, 1.4, new String[]{"1","ds"}, new ArrayList<String>(0), new JSONObject(), new JSONArray(), new RemoteException("test message")};
+	private static Object[] TEST_ARGS;
+	
+	public void setUp() {
+		List<String> l = new ArrayList<String>();
+		l.add("1");
+		l.add("2");
+		l.add("3");
+		Set<String> s = new HashSet<String>();
+		s.add("1");
+		s.add("2");
+		s.add("3");
+		Map<String,String> m = new HashMap<String,String>();
+		m.put("k1", "1");
+		m.put("k2", "2");
+		m.put("k3", "3");
+		TEST_ARGS = new Object[] {
+				2, true, null, 1.4, 
+				new String[]{"1","ds"}, 
+				new ArrayList<String>(0), 
+				new JSONObject(), 
+				new JSONArray(), 
+				new RemoteException("test message"),
+				new byte[]{1,2,3,4,5,6,7,8},
+				l,s,m,
+				TEST_DATA.getBytes()};
+	}
 	
 	@Test 
 	public void testFail() {
