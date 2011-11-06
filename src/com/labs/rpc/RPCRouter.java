@@ -418,6 +418,9 @@ public class RPCRouter {
 								call.setReturned(rcr.getValue());
 							}
 						}
+					} else {
+						/* Sleeps a little to prevent from spinning too fast */
+						Thread.sleep(5);
 					}
 				} catch (IOException e) {
 					/* Connection error, abort all */
@@ -498,12 +501,14 @@ public class RPCRouter {
 		
 		private boolean on;
 		private RPCRouter router;
+		private Map<Integer,Method> cachedMethods;
 		
 		public CallProcessor(RPCRouter r) {
 			super("RPC call processor");
 			setDaemon(false);
 			on = true;
 			router = r;
+			cachedMethods = new HashMap<Integer,Method>(0);
 		}
 		
 		public void interrupt() {
@@ -524,7 +529,9 @@ public class RPCRouter {
 						/* Make the actual call */
 						ret = makeCall(rc);
 						/* Remove the call from the waiting list */
-						router.inWait.remove(call.getRemoteCall().getSeq());
+						synchronized(router.inWait) {
+							router.inWait.remove(call.getRemoteCall().getSeq());
+						}
 						/* Send return value back to caller */
 						router.transp.send(new RemoteCallReturn(rc, ret));
 					}
@@ -542,21 +549,25 @@ public class RPCRouter {
 		private Object makeCall(RemoteCall rc) throws Exception {
 			Method method = null;
 			RPCObject target = router.getTargetObject(rc.getTarget());
-			if (target == null) {
-				throw new Exception("Target not found: " + rc.getTarget());
-			}
-			Class<?> clazz = target.getClass();
-			for (Method meth:clazz.getMethods()) {
-				if (rc.getMethod().equals(meth.getName())) {
-					method = meth;
-					break;
+			int methSig = (rc.getTarget() + rc.getMethod()).hashCode();
+			if ((method = cachedMethods.get(methSig)) == null) {
+				if (target == null) {
+					throw new Exception("Target not found: " + rc.getTarget());
+				}
+				Class<?> clazz = target.getClass();
+				for (Method meth:clazz.getMethods()) {
+					if (rc.getMethod().equals(meth.getName())) {
+						if (isRPCMethod(meth)) {
+							method = meth;
+							cachedMethods.put(methSig, meth);
+							break;
+						}
+						throw new Exception("Not a valid RPC method");
+					}
 				}
 			}
 			if (method != null) {
-				if (isRPCMethod(method)) {
-					return callMethod(target, method, rc.getArguments());
-				}
-				throw new Exception("Not a RPC method");
+				return callMethod(target, method, rc.getArguments());
 			}
 			throw new Exception("Method not found");
 		}
