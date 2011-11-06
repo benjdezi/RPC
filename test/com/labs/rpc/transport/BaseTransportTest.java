@@ -1,5 +1,6 @@
 package com.labs.rpc.transport;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
@@ -45,7 +46,7 @@ public class BaseTransportTest extends TestCase {
 					System.out.println("Sent data to client");
 					
 					try {
-						dp = DataPacket.fromStream(clientSock.getInputStream());
+						dp = DataPacket.fromStream(new BufferedInputStream(clientSock.getInputStream()));
 						System.out.println("Got data from client");
 						assertNotNull(dp);
 						assertEquals(new String(dp.getPayload()), TEST_DATA);
@@ -137,7 +138,7 @@ public class BaseTransportTest extends TestCase {
 		assertTrue("Recovery failed", transp.recover());
 		assertTrue("Recovery failed to restart the transport", transp.on.get());
 	}
-	
+		
 	private class TransportImpl extends BaseTransport {
 
 		public TransportImpl(InetAddress address, int port) {
