@@ -1,5 +1,7 @@
 package com.labs.rpc.transport;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
@@ -13,7 +15,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class BaseTransport implements Transport {
 
 	protected static final int MAX_CONNECT = 4;
+	
 	protected Socket sock;				// Socket
+	protected BufferedInputStream bis;	// Socket input stream
+	protected BufferedOutputStream bos;	// Socket output stream
 	protected InetAddress address;		// Remote address
 	protected int port;					// Remote port
 	protected AtomicBoolean on;			// Whether it is active
@@ -25,6 +30,8 @@ public abstract class BaseTransport implements Transport {
 	 */
 	public BaseTransport(InetAddress address, int port) {
 		this.sock = null;
+		this.bis = null;
+		this.bos = null;
 		this.address = address;
 		this.port = port;
 		on = new AtomicBoolean(false);
@@ -37,6 +44,12 @@ public abstract class BaseTransport implements Transport {
 	 */
 	public BaseTransport(Socket sock, int recoveryPort) {
 		this.sock = sock;
+		try {
+			this.bis = new BufferedInputStream(sock.getInputStream());
+			this.bos = new BufferedOutputStream(sock.getOutputStream());
+		} catch(IOException e) {
+			e.printStackTrace();
+		}
 		this.address = sock.getInetAddress();
 		this.port = recoveryPort;
 		on = new AtomicBoolean(true);
@@ -75,6 +88,8 @@ public abstract class BaseTransport implements Transport {
 				/* Trying to connect */
 				attempts++;
 				sock = new Socket(address, port);
+				bis = new BufferedInputStream(sock.getInputStream());
+				bos = new BufferedOutputStream(sock.getOutputStream());
 				afterConnect(sock);
 				on.set(true);
 				return true;
@@ -117,7 +132,7 @@ public abstract class BaseTransport implements Transport {
 	@Override
 	public DataPacket recv() throws IOException {
 		if (on.get()) {
-			return DataPacket.fromStream(sock.getInputStream());
+			return DataPacket.fromStream(bis);
 		}
 		throw new IOException("Not connected");
 	}
@@ -128,7 +143,8 @@ public abstract class BaseTransport implements Transport {
 			throw new NullPointerException("Invalid packet");
 		}
 		if (on.get()) {
-			sock.getOutputStream().write(dp.getBytes());
+			bos.write(dp.getBytes());
+			bos.flush();
 		} else {
 			throw new IOException("Not connected");
 		}
@@ -137,9 +153,9 @@ public abstract class BaseTransport implements Transport {
 	@Override
 	public void shutdown() {
 		if (sock != null) {
-			try {
-				sock.close();
-			} catch (IOException e) {}
+			try { bis.close(); } catch (IOException e) {}
+			try { bos.close(); } catch (IOException e) {}
+			try { sock.close(); } catch (IOException e) {}
 		}
 		on.set(false);
 	}
