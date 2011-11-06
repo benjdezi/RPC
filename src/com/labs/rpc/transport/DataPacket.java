@@ -1,8 +1,8 @@
 package com.labs.rpc.transport;
 
+import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
@@ -327,11 +327,11 @@ public class DataPacket {
 	
 	/**
 	 * Read a new packet object from a byte stream
-	 * @param in {@link InputStream} - Input stream
+	 * @param in {@link BufferedInputStream} - Input stream
 	 * @return {@link DataPacket}
 	 * @throws IOException
 	 */
-	public static DataPacket fromStream(InputStream in) throws IOException {
+	public static DataPacket fromStream(BufferedInputStream in) throws IOException {
 		byte[] headerBytes = new byte[HEADER_SIZE];
 		int b,n = 0;
 		while (n < HEADER_SIZE) {
