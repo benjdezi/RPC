@@ -137,24 +137,63 @@ public abstract class BaseTransport implements Transport {
 		throw new IOException("Not connected");
 	}
 
+	/**
+	 * Read raw data
+	 * @param buffer byte[] - Buffer to fill
+	 * @return
+	 * @throws IOException
+	 */
+	public int recv(byte[] buffer) throws IOException {
+		int n = buffer.length;
+		int offset = 0;
+		int b = 0;
+		while (offset < n) {
+			if ((b = bis.read(buffer, offset, n - offset)) < 0) {
+				return offset;
+			}
+			offset += b;
+		}
+		return n;
+	}
+	
 	@Override
 	public void send(DataPacket dp) throws IOException {
 		if (dp == null) {
 			throw new NullPointerException("Invalid packet");
 		}
 		if (on.get()) {
-			bos.write(dp.getBytes());
-			bos.flush();
+			send(dp.getBytes());
 		} else {
 			throw new IOException("Not connected");
 		}
 	}
 
+	/**
+	 * Send raw data
+	 * @param data byte[] - Data to be sent
+	 * @throws IOException
+	 */
+	public void send(byte[] data) throws IOException {
+		send(data, 0, data.length);
+	}
+	
+	/**
+	 * Send raw data
+	 * @param data byte[] - Data to be sent
+	 * @param offset int - Data offset
+	 * @param length int - Amount to send
+	 * @throws IOException
+	 */
+	public void send(byte[] data, int offset, int length) throws IOException {
+		bos.write(data, offset, length);
+		bos.flush();
+	}
+	
 	@Override
 	public void shutdown() {
 		if (sock != null) {
 			try { bis.close(); } catch (IOException e) {}
-			try { bos.close(); } catch (IOException e) {}
+			try { bos.flush(); bos.close(); } catch (IOException e) {}
 			try { sock.close(); } catch (IOException e) {}
 		}
 		on.set(false);
