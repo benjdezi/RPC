@@ -8,6 +8,7 @@ import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.json.JSONArray;
 import com.labs.rpc.transport.DataPacket;
 import com.labs.rpc.transport.Transport;
 import com.labs.rpc.util.Call;
@@ -605,7 +606,11 @@ public class RPCRouter {
 					return VOID;
 				}
 			} catch (IllegalArgumentException e) {
-				ret = new RemoteException(e);
+				JSONArray array = new JSONArray();
+				for (Object arg:args) {
+					array.put(arg);
+				}
+				ret = new RemoteException(e.getMessage() + ": meth = " + meth + ", args = " + array.toString());
 				e.printStackTrace();
 			} catch (IllegalAccessException e) {
 				ret = new RemoteException(e);
